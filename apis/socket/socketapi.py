@@ -43,12 +43,12 @@ class SocketFactory(protocol.ServerFactory):
 		log.msg('validate json')
 
 
-"""reactor.listenSSL(
-	15005,
+reactor.listenSSL(
+	6000,
 	SocketFactory(),
 	ssl.DefaultOpenSSLContextFactory(
 		proj_path+'/keys/server.key',
 		proj_path+'/keys/server.crt')
 	)
 
-reactor.run()"""
+reactor.run()
