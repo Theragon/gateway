@@ -1,0 +1,1124 @@
+
+A1 = 'A1'
+A2 = 'A2'
+A3 = 'A3'
+A4 = 'A4'
+A5 = 'A5'
+A6 = 'A6'
+A7 = 'A7'
+A8 = 'A8'
+A9 = 'A9'
+A10 = 'A10'
+A11 = 'A11'
+A12 = 'A12'
+A13 = 'A13'
+A14 = 'A14'
+A15 = 'A15'
+A16 = 'A16'
+A17 = 'A17'
+
+A43 = 'A43'
+
+A60 = 'A60'
+
+A86 = 'A86'
+rrn_value = '513815902180'
+
+SGREQ = 'SGREQ'
+SGRSP = 'SGRSP'
+RVR = 'RVR'
+
+ENQ = '\x05'
+STX = '\x02'
+ETX = '\x03'
+
+all_msgs = []
+requests = []
+responses = []
+
+def sanitize(string):
+	return string.replace(' ', '').replace('\t', '').replace('\n', '')
+
+#0
+AUTH_REQ = """H4.TSH950
+<SGREQ>
+	<A1>800018160066091</A1>
+	<A2>WD03042015</A2>
+	<A4>
+		<B2>9999999999</B2>
+	</A4>
+	<A10>1</A10>
+</SGREQ>
+&"""
+
+#1
+AUTH_APPROVED_RSP = """I4.
+<SGRSP>
+	<A80>1</A80>
+	<A83>100</A83>
+	<A3>D03D6B85A16FA9AFD028E53B</A3>
+	<A85>ACTIVATED</A85>
+</SGRSP>
+&"""
+
+#2
+AUTH_DECLINED_RSP = """I4.
+<SGRSP>
+	<A80>1</A80>
+	<A83>101</A83>
+	<A85>NOT ACTIVATED</A85>
+</SGRSP>
+&"""
+
+#3
+REVR_DECLINED_RSP = """I4.
+<SGRSP>
+	<A78>000000000000132</A78>
+	<A80>1</A80>
+	<A81>051915</A81>
+	<A82>065736</A82>
+	<A83>51</A83>
+	<A85>DECLINE</A85>
+	<A86>%s</A86>
+</SGRSP>
+&""" % (rrn_value,)
+
+#4
+REVR_APPROVED_RSP = """I4.
+<SGRSP>
+	<A17>1</A17>
+	<A78>000000000000132</A78>
+	<A80>1</A80>
+	<A81>051915</A81>
+	<A82>065736</A82>
+	<A83>00</A83>
+	<A85>APPROVAL</A85>
+	<A86>%s</A86>
+</SGRSP>
+&""" % (rrn_value,)
+
+#X
+REVR_DEC_RSP = """I4.
+<SGRSP>
+	<A17>1</A17>
+	<A78>000000000000132</A78>
+	<A80>1</A80>
+	<A81>051915</A81>
+	<A82>065736</A82>
+	<A83>05</A83>
+	<A85>DECLINE</A85>
+	<A86>%s</A86>
+</SGRSP>
+&""" % (rrn_value,)
+
+#5
+SALE_APPROVED_RSP = """I4.
+<SGRSP>
+	<A17>1</A17>
+	<A78>000000000000109</A78>
+	<A80>1</A80>
+	<A81>051815</A81>
+	<A82>095443</A82>
+	<A83>00</A83>
+	<A84>TAS075</A84>
+	<A85>APPROVAL</A85>
+	<A86>%s</A86>
+	<A92>A</A92>
+	<A93>VISA</A93>
+</SGRSP>&""" % (rrn_value,)
+
+#6
+SALE_DECLINED_RSP = """I4.
+<SGRSP>
+	<A17>1</A17>
+	<A80>1</A80>
+	<A81>051815</A81>
+	<A82>095443</A82>
+	<A83>51</A83>
+	<A85>DECLINE</A85>
+	<A86>%s</A86>
+	<A92>A</A92>
+	<A93>VISA</A93>
+</SGRSP>
+&""" % (rrn_value,)
+
+#7
+REFD_APPROVED_RSP = """I4.
+<SGRSP>
+	<A17>1</A17>
+	<A80>1</A80>
+	<A81>051815</A81>
+	<A82>103340</A82>
+	<A83>00</A83>
+	<A84>TAS015</A84>
+	<A85>APPROVAL</A85>
+	<A86>%s</A86>
+	<A93>VISA</A93>
+</SGRSP>
+&""" % (rrn_value,)
+
+#8
+REFD_DECLINED_RSP = """I4.
+<SGRSP>
+	<A17>1</A17>
+	<A80>1</A80>
+	<A81>051815</A81>
+	<A82>103340</A82>
+	<A83>51</A83>
+	<A85>DECLINE</A85>
+	<A86>%s</A86>
+	<A92>A</A92>
+	<A93>VISA</A93>
+</SGRSP>
+&""" % (rrn_value,)
+
+#9
+SALE_PARTIAL_RSP = """I4.
+<SGRSP>
+	<A80>1</A80>
+	<A17>1</A17>
+	<A81>052715</A81>
+	<A82>080733</A82>
+	<A83>10</A83>
+	<A84>TAS015</A84>
+	<A15>555</A15>
+	<A78>000000000000200</A78>
+	<A96>G</A96>
+	<A86>%s</A86>
+	<A93>DEBIT</A93>
+	<A92>A</A92>
+	<A85>PARTIAL APPROVAL</A85>
+	<A43>
+		<B1>40</B1>
+		<B2>57</B2>
+		<B3>840</B3>
+		<B4>C</B4>
+		<B5>1110</B5>
+	</A43>
+</SGRSP>
+&""" % (rrn_value,)
+
+#10
+BLNC_APPROVED_1234_RSP = """I4.
+<SGRSP>
+	<A80>1</A80>
+	<A17>1</A17>
+	<A81>061515</A81>
+	<A82>063441</A82>
+	<A83>00</A83>
+	<A84>AXS129</A84>
+	<A78>000000321000130</A78>
+	<A86>%s</A86>
+	<A93>AMEX</A93>
+	<A85>APPROVAL</A85>
+	<A43>
+		<B1>00</B1>
+		<B2>05</B2>
+		<B3>840</B3>
+		<B4>C</B4>
+		<B5>123400</B5>
+	</A43>
+</SGRSP>
+&""" % (rrn_value,)
+
+#11
+BLNC_APP_1234_B2_03_RSP = """I4.
+<SGRSP>
+	<A80>1</A80>
+	<A17>1</A17>
+	<A81>061515</A81>
+	<A82>063441</A82>
+	<A83>00</A83>
+	<A84>AXS129</A84>
+	<A78>000000321000130</A78>
+	<A86>%s</A86>
+	<A93>AMEX</A93>
+	<A85>APPROVAL</A85>
+	<A43>
+		<B1>00</B1>
+		<B2>03</B2>
+		<B3>840</B3>
+		<B4>C</B4>
+		<B5>123400</B5>
+	</A43>
+</SGRSP>
+&""" % (rrn_value,)
+
+#12
+BLNC_APPROVED_AMOUNT_TYPE_01 = """I4.
+<SGRSP>
+	<A80>1</A80>
+	<A17>1</A17>
+	<A81>061515</A81>
+	<A82>063441</A82>
+	<A83>00</A83>
+	<A84>AXS129</A84>
+	<A78>000000321000130</A78>
+	<A86>%s</A86>
+	<A93>AMEX</A93>
+	<A85>APPROVAL</A85>
+	<A43>
+		<B1>00</B1>
+		<B2>01</B2>
+		<B3>840</B3>
+		<B4>C</B4>
+		<B5>123400</B5>
+	</A43>
+</SGRSP>
+&""" % (rrn_value,)
+
+#13
+BLNC_APPROVED_0D_RSP = """I4.
+<SGRSP>
+	<A80>1</A80>
+	<A17>324</A17>
+	<A81>073015</A81>
+	<A82>093607</A82>
+	<A83>10</A83>
+	<A84>TAS136</A84>
+	<A15>555</A15>
+	<A78>000000000000455</A78>
+	<A96>K</A96>
+	<A86>%s</A86>
+	<A93>EBT</A93>
+	<A92>A</A92>
+	<A85>PARTIAL APPROVAL</A85>
+	<A43>
+		<B1>96</B1>
+		<B2>01</B2>
+		<B3>840</B3>
+		<B4>C</B4>
+		<B5>123456</B5>
+	</A43>
+	<A43>
+		<B1>98</B1>
+		<B2>01</B2>
+		<B3>840</B3>
+		<B4>C</B4>
+		<B5>654321</B5>
+	</A43>
+</SGRSP>
+&""" % (rrn_value,)
+
+"""<SGRSP>
+	<A80>1</A80>
+	<A17>1</A17>
+	<A81>061515</A81>
+	<A82>063441</A82>
+	<A83>00</A83>
+	<A84>AXS129</A84>
+	<A78>000000321000130</A78>
+	<A86>%s</A86>
+	<A93>AMEX</A93>
+	<A85>APPROVAL</A85>
+	<A43>
+		<B1>96</B1>
+		<B2>01</B2>
+		<B3>840</B3>
+		<B4>C</B4>
+		<B5>123456</B5>
+	</A43>
+	<A43>
+		<B1>98</B1>
+		<B2>01</B2>
+		<B3>840</B3>
+		<B4>C</B4>
+		<B5>654321</B5>
+	</A43>
+</SGRSP>
+&""" % (rrn_value,)
+
+'''
+	<A43>
+		<B1>00</B1>
+		<B2>05</B2>
+		<B3>840</B3>
+		<B4>D</B4>
+		<B5>0</B5>
+	</A43>
+'''
+
+#14
+BLNC_APPROVED_0C_RSP = """I4.
+<SGRSP>
+	<A80>1</A80>
+	<A17>1</A17>
+	<A81>061515</A81>
+	<A82>063441</A82>
+	<A83>00</A83>
+	<A84>AXS129</A84>
+	<A78>000000321000130</A78>
+	<A86>%s</A86>
+	<A93>AMEX</A93>
+	<A85>APPROVAL</A85>
+	<A43>
+		<B1>00</B1>
+		<B2>05</B2>
+		<B3>840</B3>
+		<B4>C</B4>
+		<B5>0</B5>
+	</A43>
+</SGRSP>
+&""" % (rrn_value,)
+
+#15
+BLNC_DECLINED_1234_RSP = """I4.
+<SGRSP>
+	<A17>1</A17>
+	<A43>
+		<B1>00</B1>
+		<B2>05</B2>
+		<B3>840</B3>
+		<B4>C</B4>
+		<B5>123400</B5>
+	</A43>
+	<A78>000000321000130</A78>
+	<A80>1</A80>
+	<A81>061515</A81>
+	<A82>063441</A82>
+	<A83>51</A83>
+	<A84>TAS075</A84>
+	<A85>DECLINE</A85>
+	<A86>%s</A86>
+	<A92>A</A92>
+	<A93>AMEX</A93>
+</SGRSP>
+&""" % (rrn_value,)
+
+#16
+BLNC_DEC_1234_B2_03_RSP = """I4.
+<SGRSP>
+	<A17>1</A17>
+	<A43>
+		<B1>00</B1>
+		<B2>03</B2>
+		<B3>840</B3>
+		<B4>C</B4>
+		<B5>123400</B5>
+	</A43>
+	<A78>000000321000130</A78>
+	<A80>1</A80>
+	<A81>061515</A81>
+	<A82>063441</A82>
+	<A83>51</A83>
+	<A84>TAS075</A84>
+	<A85>DECLINE</A85>
+	<A86>%s</A86>
+	<A92>A</A92>
+	<A93>AMEX</A93>
+</SGRSP>
+&""" % (rrn_value,)
+
+#17
+BLNC_DECLINED_AMOUNT_TYPE_01 = """I4.
+<SGRSP>
+	<A17>1</A17>
+	<A43>
+		<B1>00</B1>
+		<B2>01</B2>
+		<B3>840</B3>
+		<B4>C</B4>
+		<B5>123400</B5>
+	</A43>
+	<A78>000000321000130</A78>
+	<A80>1</A80>
+	<A81>061515</A81>
+	<A82>063441</A82>
+	<A83>51</A83>
+	<A84>TAS075</A84>
+	<A85>DECLINE</A85>
+	<A86>%s</A86>
+	<A92>A</A92>
+	<A93>AMEX</A93>
+</SGRSP>
+&""" % (rrn_value,)
+
+#18
+BLNC_DECLINED_0D_RSP = """I4.
+<SGRSP>
+	<A17>1</A17>
+	<A43>
+		<B1>00</B1>
+		<B2>05</B2>
+		<B3>840</B3>
+		<B4>D</B4>
+		<B5>0</B5>
+	</A43>
+	<A78>000000321000130</A78>
+	<A80>1</A80>
+	<A81>061515</A81>
+	<A82>063441</A82>
+	<A83>51</A83>
+	<A84>TAS075</A84>
+	<A85>DECLINE</A85>
+	<A86>%s</A86>
+	<A92>A</A92>
+	<A93>AMEX</A93>
+</SGRSP>
+&""" % (rrn_value,)
+
+#19
+BLNC_DECLINED_0C_RSP = """I4.
+<SGRSP>
+	<A17>1</A17>
+	<A43>
+		<B1>00</B1>
+		<B2>05</B2>
+		<B3>840</B3>
+		<B4>C</B4>
+		<B5>0</B5>
+	</A43>
+	<A78>000000321000130</A78>
+	<A80>1</A80>
+	<A81>061515</A81>
+	<A82>063441</A82>
+	<A83>51</A83>
+	<A84>TAS075</A84>
+	<A85>DECLINE</A85>
+	<A86>%s</A86>
+	<A92>A</A92>
+	<A93>AMEX</A93>
+</SGRSP>
+&""" % (rrn_value,)
+
+#20
+BLNC_DECLINED_MIN_RSP = """I4.
+<SGRSP>
+	<A17>1</A17>
+	<A43>
+		<B1>00</B1>
+		<B2>02</B2>
+		<B3>840</B3>
+		<B4>D</B4>
+		<B5>999999999999</B5>
+	</A43>
+	<A78>000000321000130</A78>
+	<A80>1</A80>
+	<A81>061515</A81>
+	<A82>063441</A82>
+	<A83>51</A83>
+	<A84>TAS075</A84>
+	<A85>DECLINE</A85>
+	<A86>%s</A86>
+	<A92>A</A92>
+	<A93>AMEX</A93>
+</SGRSP>
+&""" % (rrn_value,)
+
+#21
+BLNC_DECLINED_MAX_RSP = """I4.
+<SGRSP>
+	<A17>1</A17>
+	<A43>
+		<B1>00</B1>
+		<B2>02</B2>
+		<B3>840</B3>
+		<B4>C</B4>
+		<B5>999999999999</B5>
+	</A43>
+	<A78>000000321000130</A78>
+	<A80>1</A80>
+	<A81>061515</A81>
+	<A82>063441</A82>
+	<A83>51</A83>
+	<A84>TAS075</A84>
+	<A85>DECLINE</A85>
+	<A86>%s</A86>
+	<A92>A</A92>
+	<A93>AMEX</A93>
+</SGRSP>
+&""" % (rrn_value,)
+
+#22
+BLNC_DECLINED_BYR_RSP = """I4.
+<SGRSP>
+	<A17>1</A17>
+	<A43>
+		<B1>00</B1>
+		<B2>05</B2>
+		<B3>974</B3>
+		<B4>C</B4>
+		<B5>999999999999</B5>
+	</A43>
+	<A78>000000321000130</A78>
+	<A80>1</A80>
+	<A81>061515</A81>
+	<A82>063441</A82>
+	<A83>51</A83>
+	<A84>TAS075</A84>
+	<A85>DECLINE</A85>
+	<A86>%s</A86>
+	<A92>A</A92>
+	<A93>AMEX</A93>
+</SGRSP>
+&""" % (rrn_value,)
+
+#23
+BLNC_DEC_BYR_AMNT_0_RSP = """I4.
+<SGRSP>
+	<A17>1</A17>
+	<A43>
+		<B1>00</B1>
+		<B2>05</B2>
+		<B3>974</B3>
+		<B4>C</B4>
+		<B5>0</B5>
+	</A43>
+	<A78>000000321000130</A78>
+	<A80>1</A80>
+	<A81>061515</A81>
+	<A82>063441</A82>
+	<A83>51</A83>
+	<A84>TAS075</A84>
+	<A85>DECLINE</A85>
+	<A86>%s</A86>
+	<A92>A</A92>
+	<A93>AMEX</A93>
+</SGRSP>
+&""" % (rrn_value,)
+
+#24
+BLNC_APPROVED_MIN_RSP = """I4.
+<SGRSP>
+	<A80>1</A80>
+	<A17>1</A17>
+	<A81>061515</A81>
+	<A82>063441</A82>
+	<A83>00</A83>
+	<A84>AXS129</A84>
+	<A78>000000321000130</A78>
+	<A86>%s</A86>
+	<A93>AMEX</A93>
+	<A85>APPROVAL</A85>
+	<A43>
+		<B1>00</B1>
+		<B2>05</B2>
+		<B3>840</B3>
+		<B4>D</B4>
+		<B5>999999999999</B5>
+	</A43>
+</SGRSP>
+&""" % (rrn_value,)
+
+#25
+BLNC_APPROVED_MAX_RSP = """I4.
+<SGRSP>
+	<A80>1</A80>
+	<A17>1</A17>
+	<A81>061515</A81>
+	<A82>063441</A82>
+	<A83>00</A83>
+	<A84>AXS129</A84>
+	<A78>000000321000130</A78>
+	<A86>%s</A86>
+	<A93>AMEX</A93>
+	<A85>APPROVAL</A85>
+	<A43>
+		<B1>00</B1>
+		<B2>02</B2>
+		<B3>840</B3>
+		<B4>C</B4>
+		<B5>999999999999</B5>
+	</A43>
+</SGRSP>
+&""" % (rrn_value,)
+
+#26
+BLNC_MULT_APPR_MAX_RSP = """I4.
+<SGRSP>
+	<A80>1</A80>
+	<A17>1</A17>
+	<A81>061515</A81>
+	<A82>063441</A82>
+	<A83>00</A83>
+	<A84>AXS129</A84>
+	<A78>000000321000130</A78>
+	<A86>%s</A86>
+	<A93>AMEX</A93>
+	<A85>APPROVAL</A85>
+	<A43>
+		<B1>00</B1>
+		<B2>02</B2>
+		<B3>840</B3>
+		<B4>C</B4>
+		<B5>200</B5>
+	</A43>
+	<A43>
+		<B1>00</B1>
+		<B2>01</B2>
+		<B3>840</B3>
+		<B4>C</B4>
+		<B5>100</B5>
+	</A43>
+</SGRSP>
+&""" % (rrn_value,)
+
+#27
+BLNC_APPROVED_BYR_RSP = """I4.
+<SGRSP>
+	<A80>1</A80>
+	<A17>1</A17>
+	<A81>061515</A81>
+	<A82>063441</A82>
+	<A83>00</A83>
+	<A84>AXS129</A84>
+	<A78>000000321000130</A78>
+	<A86>%s</A86>
+	<A93>AMEX</A93>
+	<A85>APPROVAL</A85>
+	<A43>
+		<B1>00</B1>
+		<B2>05</B2>
+		<B3>974</B3>
+		<B4>C</B4>
+		<B5>999999999999</B5>
+	</A43>
+</SGRSP>
+&""" % (rrn_value,)
+
+#28
+BLNC_APP_BYR_AMNT_0_RSP = """I4.
+<SGRSP>
+	<A80>1</A80>
+	<A17>1</A17>
+	<A81>061515</A81>
+	<A82>063441</A82>
+	<A83>00</A83>
+	<A84>AXS129</A84>
+	<A78>000000321000130</A78>
+	<A86>%s</A86>
+	<A93>AMEX</A93>
+	<A85>APPROVAL</A85>
+	<A43>
+		<B1>00</B1>
+		<B2>05</B2>
+		<B3>974</B3>
+		<B4>C</B4>
+		<B5>0</B5>
+	</A43>
+</SGRSP>
+&""" % (rrn_value,)
+
+#29
+PAYMENT_MSG_REQ = """H4.TSH950
+<SGREQ>
+	<A1>800018160066091</A1>
+	<A3>9E08623B129A9C2EF9E01556</A3>
+	<A10>10</A10>
+	<A12>C</A12>
+	<A15>000000000200</A15>
+	<A17>286</A17>
+	<A21>
+		<B1>0</B1>
+		<B2>1</B2>
+		<B3>C</B3>
+		<B4>1</B4>
+		<B5>1</B5>
+		<B6>5</B6>
+		<B9>1</B9>
+		<B13>0</B13>
+		</A21>
+	<A24>5592000010000001=16111210000000000000</A24>
+	<A41>002628</A41>
+	<A42>H001</A42>
+</SGREQ>
+&"""
+
+#30
+SALE_TIMEOUT_REQ = """H4.TSH950
+<SGREQ>
+	<A1>800018160066091</A1>
+	<A3>9E08623B129A9C2EF9E01556</A3>
+	<A10>10</A10>
+	<A12>C</A12>
+	<A15>000000333300</A15>
+	<A17>286</A17>
+	<A21>
+		<B1>0</B1>
+		<B2>1</B2>
+		<B3>C</B3>
+		<B4>1</B4>
+		<B5>1</B5>
+		<B6>5</B6>
+		<B9>1</B9>
+		<B13>0</B13>
+		</A21>
+	<A24>5592000010000001=16111210000000000000</A24>
+	<A41>002628</A41>
+	<A42>H001</A42>
+</SGREQ>
+&"""
+
+#31
+REFUND_MSG_APP_ROMAN_REQ = """H4.TSH950
+<SGREQ>
+	<A1>800018160066091</A1>
+	<A3>4D64A560C89F56C29432E42E</A3>
+	<A10>13</A10>
+	<A12>C</A12>
+	<A15>000000010000</A15>
+	<A17>1</A17>
+	<A21>
+		<B1>0</B1>
+		<B2>1</B2>
+		<B3>C</B3>
+		<B4>1</B4>
+		<B5>3</B5>
+		<B6>5</B6>
+		<B9>1</B9>
+		<B13>0</B13>
+	</A21>
+	<A24>4012881888818888=15121015432112345678</A24>
+	<A41>002628</A41>
+	<A42>H001</A42>
+</SGREQ>
+&"""
+
+#32
+REFUND_MSG_APPROVED_REQ = """H4.TSH950
+<SGREQ>
+	<A1>800018160066091</A1>
+	<A3>4D64A560C89F56C29432E42E</A3>
+	<A10>13</A10>
+	<A12>C</A12>
+	<A15>000000000060</A15>
+	<A17>286</A17>
+	<A21>
+		<B1>0</B1>
+		<B2>1</B2>
+		<B3>C</B3>
+		<B4>1</B4>
+		<B5>1</B5>
+		<B6>5</B6>
+		<B9>1</B9>
+		<B13>0</B13>
+	</A21>
+	<A24>5592000010000001=16111210000000000000</A24>
+	<A41>002628</A41>
+	<A42>H001</A42>
+</SGREQ>
+&"""
+
+#33
+REFUND_MSG_DECLINE_REQ = """H4.TSH950
+<SGREQ>
+	<A1>800018160066091</A1>
+	<A3>4D64A560C89F56C29432E42E</A3>
+	<A10>13</A10>
+	<A12>C</A12>
+	<A15>000900000060</A15>
+	<A17>286</A17>
+	<A21>
+		<B1>0</B1>
+		<B2>1</B2>
+		<B3>C</B3>
+		<B4>1</B4>
+		<B5>1</B5>
+		<B6>5</B6>
+		<B9>1</B9>
+		<B13>0</B13>
+	</A21>
+	<A24>5592000010000001=16111210000000000000</A24>
+	<A41>002628</A41>
+	<A42>H001</A42>
+</SGREQ>
+&"""
+
+#34
+SALE_WITH_BALANCE_MSG_REQ = """H4.TSH950
+<SGREQ>
+	<A1>800018160066091</A1>
+	<A3>4D64A560C89F56C29432E42E</A3>
+	<A10>10</A10>
+	<A12>C</A12>
+	<A15>000900050000</A15>
+	<A17>1</A17>
+	<A21>
+		<B1>0</B1>
+		<B2>1</B2>
+		<B3>C</B3>
+		<B4>1</B4>
+		<B5>1</B5>
+		<B6>5</B6>
+		<B9>1</B9>
+		<B13>0</B13>
+	</A21>
+	<A24>371449635392376=201210100000</A24>
+	<A41>002628</A41>
+	<A42>H001</A42>
+	<A60>000000001000</A60>
+</SGREQ>
+&"""
+
+#35
+SALE_WITH_MULTI_BLNC_MSG_REQ = """H4.TSH950
+<SGREQ>
+	<A1>800018160066091</A1>
+	<A3>4D64A560C89F56C29432E42E</A3>
+	<A10>10</A10>
+	<A12>C</A12>
+	<A15>000900060000</A15>
+	<A17>1</A17>
+	<A21>
+		<B1>0</B1>
+		<B2>1</B2>
+		<B3>C</B3>
+		<B4>1</B4>
+		<B5>1</B5>
+		<B6>5</B6>
+		<B9>1</B9>
+		<B13>0</B13>
+	</A21>
+	<A24>371449635392376=201210100000</A24>
+	<A41>002628</A41>
+	<A42>H001</A42>
+	<A60>000000001000</A60>
+</SGREQ>
+&"""
+
+#36
+SALE_WITH_BLNCE_RSP_AMOUNT_TYPE_01 = """H4.TSH950
+<SGREQ>
+	<A1>800018160066091</A1>
+	<A3>4D64A560C89F56C29432E42E</A3>
+	<A10>10</A10>
+	<A12>C</A12>
+	<A15>000900070000</A15>
+	<A17>1</A17>
+	<A21>
+		<B1>0</B1>
+		<B2>1</B2>
+		<B3>C</B3>
+		<B4>1</B4>
+		<B5>1</B5>
+		<B6>5</B6>
+		<B9>1</B9>
+		<B13>0</B13>
+	</A21>
+	<A24>371449635392376=201210100000</A24>
+	<A41>002628</A41>
+	<A42>H001</A42>
+	<A60>000000001000</A60>
+</SGREQ>
+&"""
+
+#37
+SALE_WITH_BLNCE_RSP_BYR_0 = """H4.TSH950
+<SGREQ>
+	<A1>800018160066091</A1>
+	<A3>4D64A560C89F56C29432E42E</A3>
+	<A10>10</A10>
+	<A12>C</A12>
+	<A15>000900080000</A15>
+	<A17>1</A17>
+	<A21>
+		<B1>0</B1>
+		<B2>1</B2>
+		<B3>C</B3>
+		<B4>1</B4>
+		<B5>1</B5>
+		<B6>5</B6>
+		<B9>1</B9>
+		<B13>0</B13>
+	</A21>
+	<A24>371449635392376=201210100000</A24>
+	<A41>002628</A41>
+	<A42>H001</A42>
+	<A60>000000001000</A60>
+</SGREQ>
+&"""
+
+#38
+PAYMENT_WITH_PARTIAL_REQ = """H4.TSH950
+<SGREQ>
+	<A1>800018160066091</A1>
+	<A3>4D64A560C89F56C29432E42E</A3>
+	<A10>10</A10>
+	<A12>C</A12>
+	<A15>000900000050</A15>
+	<A17>1</A17>
+	<A21>
+		<B1>0</B1>
+		<B2>1</B2>
+		<B3>C</B3>
+		<B4>1</B4>
+		<B5>1</B5>
+		<B6>5</B6>
+		<B9>1</B9>
+		<B13>0</B13>
+	</A21>
+	<A24>371449635392376=201210100000</A24>
+	<A41>002628</A41>
+	<A42>H001</A42>
+	<A60>000000001000</A60>
+</SGREQ>&"""
+
+#39
+REVR_MSG_RRN_APP_REQ = """H4.TSH950
+<SGREQ>
+	<A1>800018160066091</A1>
+	<A3>4D64A560C89F56C29432E42E</A3>
+	<A10>10</A10>
+	<A12>C</A12>
+	<A13>RVR</A13>
+	<A15>000000010000</A15>
+	<A41>002628</A41>
+	<A42>H001</A42>
+	<A86>%s</A86>
+</SGREQ>
+&""" % (rrn_value,)
+
+#40
+REVR_MSG_RRN_DEC_REQ = """H4.TSH950
+<SGREQ>
+	<A1>800018160066091</A1>
+	<A3>4D64A560C89F56C29432E42E</A3>
+	<A10>10</A10>
+	<A12>C</A12>
+	<A13>RVR</A13>
+	<A15>100900000006</A15>
+	<A41>002628</A41>
+	<A42>H001</A42>
+	<A86>%s</A86>
+</SGREQ>
+&""" % (rrn_value,)
+
+#41
+REVR_MSG_RRN_REQ_ROMAN = """H4.TSH950
+<SGREQ>
+	<A1>800018160066091</A1>
+	<A3>4D64A560C89F56C29432E42E</A3>
+	<A10>13</A10>
+	<A12>C</A12>
+	<A13>RVR</A13>
+	<A15>000000010000</A15>
+	<A41>002628</A41>
+	<A42>H001</A42>
+	<A86>%s</A86>
+</SGREQ>
+&""" % (rrn_value,)
+
+#42
+REVR_MSG_TON_REQ = """H4.TSH950
+<SGREQ>
+	<A1>800018160066091</A1>
+	<A3>4D64A560C89F56C29432E42E</A3>
+	<A10>10</A10>
+	<A12>C</A12>
+	<A13>RVR</A13>
+	<A15>000000010000</A15>
+	<A17>286</A17>
+	<A41>002628</A41>
+	<A42>H001</A42>
+</SGREQ>
+&"""
+
+PARTIAL_EBT_RSP = """I4.
+<SGRSP>
+	<A80>1</A80>
+	<A17>324</A17>
+	<A81>073015</A81>
+	<A82>093607</A82>
+	<A83>10</A83>
+	<A84>TAS136</A84>
+	<A15>555</A15>
+	<A78>000000000000455</A78>
+	<A96>K</A96>
+	<A86>%s</A86>
+	<A93>EBT</A93>
+	<A92>A</A92>
+	<A85>PARTIAL APPROVAL</A85>
+	<A43>
+		<B1>96</B1>
+		<B2>01</B2>
+		<B3>840</B3>
+		<B4>C</B4>
+		<B5>123456</B5>
+	</A43>
+	<A43>
+		<B1>98</B1>
+		<B2>01</B2>
+		<B3>840</B3>
+		<B4>C</B4>
+		<B5>654321</B5>
+	</A43>
+</SGRSP>
+&""" % (rrn_value)
+
+PARTIAL_EBT_REQ = """H4.TSH950
+<SGREQ>
+	<A1>800018160066091</A1>
+	<A3>3AA716D768CD2F8D099505BA</A3>
+	<A10>10</A10>
+	<A12>F</A12>
+	<A15>999990050000</A15>
+	<A17>1</A17>
+	<A21>
+		<B1>0</B1>
+		<B2>1</B2>
+		<B3>2</B3>
+		<B4>1</B4>
+		<B5>1</B5>
+		<B6>5</B6>
+		<B9>1</B9>
+		<B13>0</B13>
+	</A21>
+	<A24>4012000098765439=20121011796251900000</A24>
+	<A41>002628</A41>
+	<A42>H001</A42>
+	<A60>000000000000</A60>
+</SGREQ>
+&"""
+
+def get_all_messages():
+	# # # # # # # #
+	#  RESPONSES  #
+	# # # # # # # #
+	all_msgs.append(AUTH_APPROVED_RSP)				#1
+	all_msgs.append(AUTH_DECLINED_RSP)				#2
+	all_msgs.append(REVR_DECLINED_RSP)				#3
+	all_msgs.append(REVR_APPROVED_RSP)				#4
+	all_msgs.append(SALE_APPROVED_RSP)				#5
+	all_msgs.append(SALE_DECLINED_RSP)				#6
+	all_msgs.append(REFD_APPROVED_RSP)				#7
+	all_msgs.append(REFD_DECLINED_RSP)				#8
+	all_msgs.append(SALE_PARTIAL_RSP)				#9
+	all_msgs.append(BLNC_APPROVED_1234_RSP)			#10
+	all_msgs.append(BLNC_APP_1234_B2_03_RSP)		#11
+	all_msgs.append(BLNC_APPROVED_AMOUNT_TYPE_01)	#12
+	all_msgs.append(BLNC_APPROVED_0D_RSP)			#13
+	all_msgs.append(BLNC_APPROVED_0C_RSP)			#14
+	all_msgs.append(BLNC_DECLINED_1234_RSP)			#15
+	all_msgs.append(BLNC_DEC_1234_B2_03_RSP)		#16
+	all_msgs.append(BLNC_DECLINED_AMOUNT_TYPE_01)	#17
+	all_msgs.append(BLNC_DECLINED_0D_RSP)			#18
+	all_msgs.append(BLNC_DECLINED_0C_RSP)			#19
+	all_msgs.append(BLNC_DECLINED_MIN_RSP)			#20
+	all_msgs.append(BLNC_DECLINED_MAX_RSP)			#21
+	all_msgs.append(BLNC_DECLINED_BYR_RSP)			#22
+	all_msgs.append(BLNC_DEC_BYR_AMNT_0_RSP)		#23
+	all_msgs.append(BLNC_APPROVED_MIN_RSP)			#24
+	all_msgs.append(BLNC_APPROVED_MAX_RSP)			#25
+	all_msgs.append(BLNC_MULT_APPR_MAX_RSP)			#26
+	all_msgs.append(BLNC_APPROVED_BYR_RSP)			#27
+	all_msgs.append(BLNC_APP_BYR_AMNT_0_RSP)		#28
+	
+	# # # # # # #
+	#  REQUESTS #
+	# # # # # # #
+	all_msgs.append(PAYMENT_MSG_REQ)				#29
+	all_msgs.append(SALE_TIMEOUT_REQ)				#30
+	all_msgs.append(REFUND_MSG_APP_ROMAN_REQ)		#31
+	all_msgs.append(REFUND_MSG_APPROVED_REQ)		#32
+	all_msgs.append(REFUND_MSG_DECLINE_REQ)			#33
+	all_msgs.append(SALE_WITH_BALANCE_MSG_REQ)		#34
+	all_msgs.append(SALE_WITH_MULTI_BLNC_MSG_REQ)	#35
+	all_msgs.append(SALE_WITH_BLNCE_RSP_AMOUNT_TYPE_01)	#36
+	all_msgs.append(SALE_WITH_BLNCE_RSP_BYR_0)	#37
+	all_msgs.append(PAYMENT_WITH_PARTIAL_REQ)	#38
+	all_msgs.append(REVR_MSG_RRN_REQ)	#39
+	all_msgs.append(REVR_MSG_RRN_REQ_ROMAN)	#40
+	all_msgs.append(REVR_MSG_TON_REQ)	#41
+
+	return all_msgs
+	
