@@ -13,6 +13,7 @@ from tsysconstants import *
 from core.exceptions import *
 #from exceptions import *
 from config import *
+from voluptuous import Schema
 
 
 class ClassName(object):
@@ -32,6 +33,9 @@ class Parser(RouteParser, object):
 
 		if self.is_payment():
 			print('msg is payment')
+			#todo: validate against schema using voluptuous
+			#todo: translate to tsys message
+			#todo: make the payment happen
 
 		if self.is_refund():
 			print('msg is refund')
@@ -40,6 +44,7 @@ class Parser(RouteParser, object):
 
 
 class Route():
+	#acquirer specific logic goes here
 	def __init__(self):
 		self.authenticated = False
 		self.client = Client()
