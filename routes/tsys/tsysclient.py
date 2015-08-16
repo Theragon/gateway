@@ -17,7 +17,7 @@ from voluptuous import Any, Schema, Required, Length, All, ALLOW_EXTRA
 
 payment = {
 	'cardAcceptorId': All(unicode, Length(min=1, max=10)),
-	'paymentScenario': Any(unicode),
+	'paymentScenario': unicode,
 	'softwareVersion': Any(unicode),
 	'configVersion': Any(unicode),
 	'terminalDateTime': Any(unicode),
