@@ -10,11 +10,11 @@ import sys
 import os
 
 proj_root = os.path.dirname(os.path.dirname(os.getcwd()))
-print('project root: ' + proj_root)
+#print('project root: ' + proj_root)
 sys.path.append(proj_root)
 
-from routes import *
-from core import gateway
+#from routes import *
+from core.gateway import Gateway
 
 from lxml import etree
 #import inspect
@@ -29,6 +29,13 @@ GET = 'GET'
 POST = 'POST'
 
 msg_cache = {}
+gw = None
+txn_cntr = 0
+
+
+def initialize():
+	global gw
+	gw = Gateway()
 
 # decorators
 
@@ -45,7 +52,7 @@ msg_cache = {}
 	return wrapper"""
 
 
-def validate_schema(schema_name):
+"""def validate_schema(schema_name):
 	def decorator(f):
 		@wraps(f)
 		def wrapper(*args, **kw):
@@ -71,7 +78,7 @@ def returns_json(f):
 	def decorated_function(*args, **kwargs):
 		r = f(*args, **kwargs)
 		return Response(r, content_type='application/json; charset=utf-8')
-	return decorated_function
+	return decorated_function"""
 
 # error handlers
 
@@ -89,6 +96,22 @@ def internal_error(error):
 @app.errorhandler(405)
 def not_allowed(error):
 	return 'Method not allowed', 405
+
+
+def json_to_dict(data):
+	try:
+		json_dict = json.loads(data)
+		return json_dict
+	except ValueError, e:
+		raise e
+
+
+def xml_to_dict(data):
+	try:
+		xml_dict = xmltodict.parse(data)
+		return xml_dict
+	except Exception, e:
+		raise e
 
 # routes
 
@@ -133,7 +156,10 @@ def refund():
 
 @app.route('/viscus/cr/v1/payment', methods=[POST])
 def payment():
-	data = {}
+	global msg_cache
+	global txn_cntr
+	txn_cntr += 1
+	msg = {}
 	response = None
 
 	#logging.basicConfig(filename='example.log',level=logging.INFO)
@@ -141,38 +167,41 @@ def payment():
 
 	server_date_time = datetime.now()
 	log.info('server time: ' + str(server_date_time))
-	message_guid = uuid.uuid4()
-	log.info('message guid: ' + str(message_guid))
+	msg_guid = get_guid()
+	log.info('message guid: ' + str(msg_guid))
 	#ksn = request.headers.get('ksn')
 	#bdk = request.headers.get('bdk-index')
 
 	if contains_json(request):
-		log.info('received json')
 		print('received json')
-		data = json.loads(request.data)
-		print('json data: ' + str(data))
-		route_name = data['payment']['route'].lower()
-		print('route_name: ' + route_name)
+		try:
+			msg = json_to_dict(request.data)
+		except Exception, e:
+			return (e, 400)
+	elif contains_xml(request):
+		print('received xml')
+		try:
+			msg = xml_to_dict(request.data)
+		except Exception, e:
+			return (e, 400)
 
-		response = (gateway.do_payment(route_name, data), 200)
+	try:
+		route_name = msg['payment']['route'].lower()
+	except KeyError, e:
+		print('no route in request, raise exception')
 
-	if contains_xml(request):
-		log.info('received xml')
-		if validate_xml(request.data):
-			print('xml is valid')
-			data = xmltodict.parse(request.data)
-			print('data: ' + str(data))
-			route_name = data['payment']['route'].lower()
+	print('route_name: ' + route_name)
+	msg_cache[msg_guid] = msg
+	print('msg_cache: ' + str(msg_cache))
+	print('txn_cntr: ' + str(txn_cntr))
 
-			#do core stuff
-			#make_response(render_template('error.html'), 404)
-			response = (gateway.do_payment(route_name, data), 200)
+	try:
+		response = (gw.do_payment(route_name, msg), 200)
+	except Exception, e:
+		print('caught exception ' + str(e) + ' from gateway')
+		response = (e.strerror, 500)
 
-			#todo: validate response
-
-		else:
-			print('xml invalid')
-			response = ('invalid xml', 400)
+	#todo: validate response
 
 	print('returning ' + str(response))
 	return response
@@ -197,7 +226,7 @@ def index(route_name):
 	if result is None:
 		print('result == None')
 		try:
-			gateway.load_module(route_name)
+			gw.load_module(route_name)
 			result = 'route ' + route_name + ' successfully loaded'
 		except ImportError:
 			result = 'route ' + route_name + ' not found'
@@ -255,4 +284,5 @@ def validate_xml(data):
 		return False
 
 if __name__ == '__main__':
+	initialize()
 	app.run(debug=True)

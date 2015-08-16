@@ -2,6 +2,7 @@ from lxml import etree
 import unittest
 import requests
 import json
+from mock import *
 
 payment_url = 'http://localhost:5000/viscus/cr/v1/payment'
 
@@ -83,7 +84,18 @@ class PaymentTests(unittest.TestCase):
 		resp = requests.post(payment_url, data=xml, headers=app_xml)
 		print('resp.text: ' + str(resp.text))
 		#print('resp.content: ' + str(resp.content))
-		assert resp.status_code == requests.codes.ok
+
+		assert resp.status_code is not None
+		#assert resp.status_code == requests.codes.ok
+
+	def test_json_payment_tsys(self):
+		#xml = get_payment('tsys')
+		#headers = {'Content-Type': 'application/xml'}
+		resp = requests.post(payment_url, data=payment_json, headers=app_xml)
+		print('resp.text: ' + str(resp.text))
+		#print('resp.content: ' + str(resp.content))
+
+		assert resp.status_code is not None
 
 	@unittest.skip("")
 	def test_xml_payment_evo(self):
@@ -92,6 +104,14 @@ class PaymentTests(unittest.TestCase):
 		print('resp.text: ' + str(resp.text))
 		assert resp is not None
 		assert resp.status_code == requests.codes.server_error
+
+	def test_correct_method_called(self):
+		xml = get_payment('test')
+		resp = requests.post(payment_url, data=xml, headers=app_xml)
+		assert resp is not None
+		"""with patch.object(ProductionClass, 'method', return_value=None) as mock_method:
+									thing = ProductionClass()
+									thing.method(1, 2, 3)"""
 
 
 def get_payment(route):
