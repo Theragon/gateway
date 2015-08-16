@@ -199,7 +199,7 @@ def payment():
 		response = (gw.do_payment(route_name, msg), 200)
 	except Exception, e:
 		print('caught exception ' + str(e) + ' from gateway')
-		response = (e.strerror, 500)
+		response = (e, 500)
 
 	#todo: validate response
 
