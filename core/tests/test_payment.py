@@ -3,7 +3,14 @@ import sys
 import os
 
 proj_root = os.path.dirname(os.path.dirname(os.getcwd()))
+print('proj_root: ' + proj_root)
+full_path = __file__
+print('full_path: ' + full_path)
+print('1 level up: ' + os.path.dirname(full_path))
+print('2 levels up: ' + os.path.dirname(os.path.dirname(full_path)))
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(full_path))))
 sys.path.append(proj_root)
+#from core import *
 from core.gateway import *
 
 payment_json = \
