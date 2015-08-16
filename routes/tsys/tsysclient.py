@@ -13,19 +13,50 @@ from tsysconstants import *
 from core.exceptions import *
 #from exceptions import *
 from config import *
-from voluptuous import Schema
+from voluptuous import Any, Schema, Required, Length, All, ALLOW_EXTRA
 
+payment = {
+	'cardAcceptorId': All(unicode, Length(min=1, max=10)),
+	'paymentScenario': Any(unicode),
+	'softwareVersion': Any(unicode),
+	'configVersion': Any(unicode),
+	'terminalDateTime': Any(unicode),
+	'nonce': Any(unicode),
+	'authorizationGuid': Any(unicode),
+	'currency': Any(unicode),
+	'amount': Any(unicode),
+	'customerReference': Any(unicode),
+	'emvData': Any(unicode),
+	Required('f22'): Any(unicode),
+	'serialNumber': Any(unicode),
+	'terminalUserId': Any(unicode),
+	'deviceType': Any(unicode),
+	'terminalOsVersion': Any(unicode),
+	'transactionCounter': Any(unicode),
+	#'accountType': Any(str, unicode),
+	Required('route'): 'tsys',
+	#Required('www'): Any(str, unicode),
+}
 
-class ClassName(object):
-	"""docstring for ClassName"""
-	def __init__(self, arg):
-		super(ClassName, self).__init__()
-		self.arg = arg
+payment_schema = Schema({
+	'payment': payment
+}, extra=ALLOW_EXTRA)
 
 
 class Parser(RouteParser, object):
 	def __init__(self):
 		super(Parser, self).__init__()
+
+	def validate_payment(self, msg):
+		global payment_schema
+		try:
+			print('validating message')
+			is_valid = payment_schema(msg)
+			return is_valid
+		except Exception, e:
+			print('unable to validate message')
+			print(e)
+			raise e
 
 	def parse(self, data):
 		self.caller = fu.get_caller()
@@ -33,6 +64,12 @@ class Parser(RouteParser, object):
 
 		if self.is_payment():
 			print('msg is payment')
+			try:
+				self.validate_payment(data)
+				print('payment passed validation')
+			except Exception:
+				#should create a specific ParseException
+				raise e
 			#todo: validate against schema using voluptuous
 			#todo: translate to tsys message
 			#todo: make the payment happen
@@ -93,7 +130,10 @@ class Route():
 
 	def do_payment(self, msg):
 		print('payment logic')
-		return self.authenticate()
+		try:
+			return self.authenticate()
+		except Exception, e:
+			raise e
 		#return self.client.exchange_msg(msg)
 
 
