@@ -1,5 +1,8 @@
+import pprint
 import imp
 import os
+
+from exceptions import *
 
 
 def path_to_routes():
@@ -41,8 +44,11 @@ class Gateway(object):
 
 	def add_to_msg_cache(self, direction, msg):
 		self.msg_cache[direction] = msg
+		print('message added to msg_cache')
+		pprint.pprint(self.msg_cache)
 
 	def do_payment(self, msg):
+		response = None
 		acq_msg = None
 
 		try:
@@ -60,10 +66,13 @@ class Gateway(object):
 
 			#make sure the message is parsable
 			#get the message so that it can be stored
-			acq_msg = parser.parse(msg)
-
+			acq_msg = parser.parse_payment(msg)
 			print('acq_msg: ' + acq_msg)
 
+		except (TypeError, ParseException, ImportError) as e:
+			raise e
+
+		try:
 			#instantiate the route
 			route1 = route.Route()
 
@@ -71,9 +80,10 @@ class Gateway(object):
 			self.add_to_msg_cache('OREQ', acq_msg)
 
 			#do the payment and get the response back
+			print('performing payment')
 			response = route1.do_payment(acq_msg)
 
-		except Exception, e:
+		except Exception as e:
 			raise e
 
 		print('do_payment returning ' + str(response))
