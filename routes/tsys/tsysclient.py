@@ -58,7 +58,7 @@ class Parser(RouteParser, object):
 			print(e)
 			raise e
 
-	def parse(self, data):
+	def parse_payment(self, data):
 		self.caller = fu.get_caller()
 		print('caller: ' + self.caller)
 
@@ -67,10 +67,9 @@ class Parser(RouteParser, object):
 			try:
 				self.validate_payment(data)
 				print('payment passed validation')
-			except Exception:
+			except Exception, e:
 				#should create a specific ParseException
 				raise e
-			#todo: validate against schema using voluptuous
 			#todo: translate to tsys message
 			#todo: make the payment happen
 
@@ -134,7 +133,7 @@ class Route():
 			return self.authenticate()
 		except Exception, e:
 			raise e
-		#return self.client.exchange_msg(msg)
+		return self.client.exchange_msg(msg)
 
 
 class Client(RouteClient):
