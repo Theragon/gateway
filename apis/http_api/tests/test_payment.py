@@ -46,7 +46,7 @@ class PaymentTests(unittest.TestCase):
 		assert resp.status_code == requests.codes.ok
 		#assert resp.text == 'OK'
 
-	@unittest.skip("")
+	#@unittest.skip("")
 	def test_xml_payment_tsys(self):
 		xml = get_xml_payment('tsys')
 		resp = requests.post(payment_url, data=xml, headers=app_xml)
