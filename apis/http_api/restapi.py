@@ -185,18 +185,15 @@ def payment():
 		except Exception, e:
 			return (e, 400)
 
-	try:
-		route_name = msg['payment']['route'].lower()
-	except KeyError, e:
-		print('no route in request, raise exception')
-
-	print('route_name: ' + route_name)
+	#print('route_name: ' + route_name)
 	msg_cache[msg_guid] = msg
 	print('msg_cache: ' + str(msg_cache))
 	print('txn_cntr: ' + str(txn_cntr))
 
 	try:
-		response = (gw.do_payment(route_name, msg), 200)
+		response = (gw.do_payment(msg), 200)
+
+		#todo: verify that payment response is valid
 	except Exception, e:
 		print('caught exception ' + str(e) + ' from gateway')
 		response = (e, 500)
