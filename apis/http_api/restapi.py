@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 from datetime import datetime
-from flask import Flask
+from flask import Response
 from flask import request
+from flask import Flask
 from flask import json
 import logging as log
 import xmltodict
@@ -113,6 +114,14 @@ def xml_to_dict(data):
 	except Exception, e:
 		raise e
 
+
+def xmlify(msg_dict):
+	try:
+		xml = xmltodict.unparse(msg_dict)
+	except Exception as e:
+		raise e
+	return Response(xml, mimetype='text/xml')
+
 # routes
 
 
@@ -146,8 +155,8 @@ def xml_to_dict(data):
 
 @app.route('/viscus/cr/v1/refund', methods=[POST])
 def refund():
-	data = {}
-	response = None
+	#data = {}
+	#response = None
 
 	msg_guid = get_guid()
 
@@ -161,6 +170,9 @@ def payment():
 	txn_cntr += 1
 	msg = {}
 	response = None
+	app_xml = {'Content-Type': 'application/xml'}
+	text_xml = {'Content-Type': 'text/xml'}
+	app_json = {'Content-Type': 'application/json'}
 
 	#logging.basicConfig(filename='example.log',level=logging.INFO)
 	log.basicConfig(level=log.INFO, format='%(asctime)s %(message)s')
@@ -191,7 +203,15 @@ def payment():
 	print('txn_cntr: ' + str(txn_cntr))
 
 	try:
-		response = (gw.do_payment(msg), 200)
+		gw_response = gw.do_payment(msg)
+		#make sure gw_response is dict
+		if contains_json(request):
+			#response = (json.jsonify(**gw_response), 200)
+			response = (json.dumps(gw_response), 200, app_json)
+		elif contains_xml(request):
+			#response = (xmlify(response), 200)
+			response = xmltodict.unparse(gw_response, full_document=False)
+			return Response(response, 200, text_xml)
 
 		#todo: verify that payment response is valid
 	except Exception, e:
