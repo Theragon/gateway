@@ -4,6 +4,11 @@ import os
 
 from exceptions import *
 
+IREQ = 'IREQ'
+IRES = 'IRES'
+OREQ = 'OREQ'
+ORES = 'ORES'
+
 
 def path_to_routes():
 	#return os.path.dirname(os.path.dirname(os.getcwd()))+'/routes'
@@ -76,12 +81,17 @@ class Gateway(object):
 			#instantiate the route
 			route1 = route.Route()
 
-			self.add_to_msg_cache('IREQ', msg)
-			self.add_to_msg_cache('OREQ', acq_msg)
+			self.add_to_msg_cache(IREQ, msg)
+			self.add_to_msg_cache(OREQ, acq_msg)
 
 			#do the payment and get the response back
 			print('performing payment')
 			response = route1.do_payment(acq_msg)
+
+			#todo: make sure response is a dict
+			self.add_to_msg_cache(IRES, response)
+
+			#todo: create outgoing response (ORES)
 
 		except Exception as e:
 			raise e
