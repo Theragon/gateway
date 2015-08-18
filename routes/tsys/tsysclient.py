@@ -83,7 +83,7 @@ class Route():
 	#acquirer specific logic goes here
 	def __init__(self):
 		self.authenticated = False
-		self.client = Client()
+		self.client = Client(debug=True)
 
 	def extract_xml_from_msg(self, client_msg):
 		#log.msg('parsing response: ' + client_msg)
@@ -127,28 +127,53 @@ class Route():
 		print(auth_resp)
 		return auth_resp
 
+	def get_msg_dict(self, msg):
+		try:
+			msg_dict = xmltodict.parse(msg)
+		except Exception, e:
+			raise e
+		return msg_dict
+
+	def create_payment_response(self, data):
+		return data
+
 	def do_payment(self, msg):
 		print('payment logic')
 		"""try:
 			return self.authenticate()
 		except Exception, e:
 			raise e"""
+		raw_response = self.client.exchange_msg(msg)
+		print('raw response: ' + raw_response)
+		xml_msg = self.extract_xml_from_msg(raw_response)
+		print('xml message: ' + xml_msg)
+		msg_dict = self.get_msg_dict(xml_msg)
+
+		payment_response = self.create_payment_response(msg_dict)
 
 		#return self.client.exchange_msg(msg)
-		return SALE_APPROVED_RSP
+		return payment_response
 
 
 class Client(RouteClient):
-	def __init__(self, host=host, port=port, timeout=5):
+	#def __init__(self, host=host, port=port, timeout=5, debug=False):
+	def __init__(self, host=host, port=port, **kwargs):
 		self.ready = False
 		self.host = host
 		self.port = port
+
+		self.timeout = kwargs.get('timeout', 5)
+		print('tsys timeout: ' + str(self.timeout))
+		self.debug = kwargs.get('debug', False)
+		print('tsys debug: ' + str(self.debug))
+		#self.timeout = timeout
+		#self.debug = debug
 
 		self.prot = PROTOCOL_TLSv1
 		self.cert = CERT_NONE
 
 		self.sock = self.create_socket()
-		self.sock.settimeout(timeout)
+		self.sock.settimeout(self.timeout)
 		self.connect_to_host(self.sock)
 
 		while not self.ready:
@@ -179,6 +204,8 @@ class Client(RouteClient):
 		return self.receive() == '\x05'
 
 	def exchange_msg(self, request):
+		if self.debug:
+			return SALE_APPROVED_RSP
 		self.send(request)
 		try:
 			response = self.receive()
