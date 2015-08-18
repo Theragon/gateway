@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 from datetime import datetime
-from flask import Response
+#from flask import Response
 from flask import request
 from flask import Flask
 from flask import json
@@ -29,14 +29,18 @@ app = Flask(__name__)
 GET = 'GET'
 POST = 'POST'
 
+app_xml = {'Content-Type': 'application/xml'}
+text_xml = {'Content-Type': 'text/xml'}
+app_json = {'Content-Type': 'application/json'}
+
 msg_cache = {}
 gw = None
 txn_cntr = 0
 
 
 def initialize():
-	global gw
-	gw = Gateway()
+	#do initialization
+	pass
 
 # decorators
 
@@ -99,28 +103,37 @@ def not_allowed(error):
 	return 'Method not allowed', 405
 
 
-def json_to_dict(data):
+def json_to_dict(jso):
 	try:
-		json_dict = json.loads(data)
-		return json_dict
-	except ValueError, e:
+		json_dict = json.loads(jso)
+	except ValueError as e:
 		raise e
+	return json_dict
 
 
-def xml_to_dict(data):
+def dict_to_json(dic):
 	try:
-		xml_dict = xmltodict.parse(data)
-		return xml_dict
+		dict_json = json.dumps(dic)
+	except ValueError as e:
+		raise e
+	return dict_json
+
+
+def xml_to_dict(xml):
+	try:
+		xml_dict = xmltodict.parse(xml)
 	except Exception, e:
 		raise e
+	return xml_dict
 
 
-def xmlify(msg_dict):
+def dict_to_xml(dic):
 	try:
-		xml = xmltodict.unparse(msg_dict)
+		xml = xmltodict.unparse(dic, full_document=False)
 	except Exception as e:
 		raise e
-	return Response(xml, mimetype='text/xml')
+	return xml
+
 
 # routes
 
@@ -155,6 +168,7 @@ def xmlify(msg_dict):
 
 @app.route('/viscus/cr/v1/refund', methods=[POST])
 def refund():
+	gw = Gateway()
 	#data = {}
 	#response = None
 
@@ -165,14 +179,12 @@ def refund():
 
 @app.route('/viscus/cr/v1/payment', methods=[POST])
 def payment():
+	gw = Gateway()
 	global msg_cache
 	global txn_cntr
 	txn_cntr += 1
 	msg = {}
 	response = None
-	app_xml = {'Content-Type': 'application/xml'}
-	text_xml = {'Content-Type': 'text/xml'}
-	app_json = {'Content-Type': 'application/json'}
 
 	#logging.basicConfig(filename='example.log',level=logging.INFO)
 	log.basicConfig(level=log.INFO, format='%(asctime)s %(message)s')
@@ -197,7 +209,6 @@ def payment():
 		except Exception, e:
 			return (e, 400)
 
-	#print('route_name: ' + route_name)
 	msg_cache[msg_guid] = msg
 	print('msg_cache: ' + str(msg_cache))
 	print('txn_cntr: ' + str(txn_cntr))
@@ -205,20 +216,18 @@ def payment():
 	try:
 		gw_response = gw.do_payment(msg)
 		#make sure gw_response is dict
-		if contains_json(request):
-			#response = (json.jsonify(**gw_response), 200)
-			response = (json.dumps(gw_response), 200, app_json)
-		elif contains_xml(request):
-			#response = (xmlify(response), 200)
-			response = xmltodict.unparse(gw_response, full_document=False)
-			return Response(response, 200, text_xml)
 
-		#todo: verify that payment response is valid
+		if contains_json(request):
+			json_response = dict_to_json(gw_response)
+			response = (json_response, 200, app_json)
+
+		elif contains_xml(request):
+			xml_response = dict_to_xml(gw_response)
+			response = (xml_response, 200, text_xml)
+
 	except Exception, e:
 		print('caught exception ' + str(e) + ' from gateway')
 		response = (e, 500)
-
-	#todo: validate response
 
 	print('returning ' + str(response))
 	return response
@@ -285,13 +294,7 @@ def validate_json(data):
 
 def validate_xml(data):
 	print('xml: ' + data)
-	#xsd = None
-	"""with open("paymentrequest.xsd", "r") as f:
-		xsd = f.read()"""
 	try:
-		#schema_root = etree.XML(xsd)
-		#schema = etree.XMLSchema(schema_root)
-		#parser = etree.XMLParser(schema=schema)
 		parser = etree.XMLParser()
 		etree.fromstring(data, parser)
 		return True
