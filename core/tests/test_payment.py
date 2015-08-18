@@ -50,6 +50,12 @@ class PaymentTests(unittest.TestCase):
 	def setUpClass(cls):
 		cls.gw = Gateway()
 
+	def send_payment(self, msg):
+		try:
+			return self.gw.do_payment(msg)
+		except Exception as e:
+			return e
+
 	#@unittest.skip("")
 	def test_tsys_payment(self):
 		resp = self.gw.do_payment(payment)
