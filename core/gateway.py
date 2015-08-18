@@ -1,3 +1,5 @@
+from collections import OrderedDict
+
 import pprint
 import imp
 import os
@@ -24,11 +26,13 @@ class Gateway(object):
 		self.arg = arg
 
 	def verify_type(self, msg):
-		if type(msg) is not dict:
+		if type(msg) is not dict and type(msg) is not OrderedDict:
 			raise TypeError('Message must be dictionary')
 
 	def get_route_name(self, msg):
 		try:
+			if 'route' in msg:
+				print('message contains route')
 			route_name = msg['payment']['route'].lower()
 		except KeyError, e:
 			raise e
