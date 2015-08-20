@@ -16,6 +16,7 @@ sys.path.append(proj_root)
 
 #from routes import *
 from core.gateway import Gateway
+from utils.decorators import timeit
 
 from lxml import etree
 #import inspect
@@ -178,6 +179,7 @@ def refund():
 
 
 @app.route('/viscus/cr/v1/payment', methods=[POST])
+@timeit
 def payment():
 	gw = Gateway()
 	global msg_cache
