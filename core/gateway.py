@@ -5,6 +5,7 @@ import imp
 import os
 
 from exceptions import *
+from utils.decorators import *
 
 IREQ = 'IREQ'
 IRES = 'IRES'
@@ -56,6 +57,7 @@ class Gateway(object):
 		print('message added to msg_cache')
 		pprint.pprint(self.msg_cache)
 
+	@timeit
 	def do_payment(self, msg):
 		response = None
 		acq_msg = None
