@@ -32,6 +32,14 @@ ENQ = '\x05'
 STX = '\x02'
 ETX = '\x03'
 
+REC_FORM = 'H'
+APP_TYPE = '4'
+DELIM = '.'
+ROUTE_ID = 'TSH950'
+
+STX = '\x02'
+ETX = '\x03'
+
 all_msgs = []
 requests = []
 responses = []
