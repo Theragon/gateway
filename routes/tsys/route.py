@@ -5,6 +5,7 @@ from tsysconstants import *
 from client import Client
 import collections
 import xmltodict
+import pprint
 
 
 class Route():
@@ -17,6 +18,7 @@ class Route():
 		self.auth_code = 'WD03042015'
 		self.pos_id = '800018160066091'
 		self.zip = '999999'
+		self.gen_key = None
 
 	def extract_xml_from_msg(self, client_msg):
 		#log.msg('parsing response: ' + client_msg)
@@ -108,6 +110,14 @@ class Route():
 
 		return auth_xml
 
+	def exchange_msg(self, msg):
+		tsys_resp = self.client.exchange_msg(msg)
+
+		xml_resp = self.extract_xml_from_msg(tsys_resp)
+
+		dict_resp = pu.xml_to_dict(xml_resp)
+		return dict_resp
+
 	def do_authentication(self):
 		auth_xml = self.get_auth_msg()
 		print('do_auth xml: ' + auth_xml)
@@ -115,8 +125,15 @@ class Route():
 		auth_msg = self.construct_msg(auth_xml)
 		print('auth_msg: ' + auth_msg)
 
-		auth_resp = self.client.exchange_msg(auth_msg)
-		print('auth_resp: ' + auth_resp)
+		#auth_resp = self.client.exchange_msg(auth_msg)
+		auth_resp = self.exchange_msg(auth_msg)
+		print('auth_resp:')
+		pprint.pprint(auth_resp)
+
+		if auth_resp[SGRSP]['A83'] == '100':
+			print('AUTHENTICATION SUCCESSFUL')
+			self.gen_key = auth_resp[SGRSP][A3]
+			print('GEN KEY: ' + self.gen_key)
 
 	@timeit
 	def do_payment(self, msg):
