@@ -60,7 +60,7 @@ class Gateway(object):
 	@timeit
 	def do_payment(self, msg):
 		response = None
-		acq_msg = None
+		#acq_msg = None
 
 		try:
 			#verify that message is a dictionary
@@ -73,12 +73,12 @@ class Gateway(object):
 			route = self.load_module(route_name)
 
 			#instantiate the route parser
-			parser = route.Parser()
+			#parser = route.Parser()
 
 			#make sure the message is parsable
 			#get the message so that it can be stored
-			acq_msg = parser.parse_payment(msg)
-			print('acq_msg: ' + acq_msg)
+			#acq_msg = parser.parse_payment(msg)
+			#print('acq_msg: ' + acq_msg)
 
 		except (TypeError, ParseException, ImportError) as e:
 			raise e
@@ -88,14 +88,15 @@ class Gateway(object):
 			route1 = route.Route()
 
 			self.add_to_msg_cache(IREQ, msg)
-			self.add_to_msg_cache(OREQ, acq_msg)
+			#self.add_to_msg_cache(OREQ, acq_msg)
 
 			#do the payment and get the response back
 			print('performing payment')
-			response = route1.do_payment(acq_msg)
+			response, request = route1.do_payment(msg)
 
 			#todo: make sure response is a dict
 			self.add_to_msg_cache(IRES, response)
+			self.add_to_msg_cache(OREQ, request)
 
 			#todo: create outgoing response (ORES)
 

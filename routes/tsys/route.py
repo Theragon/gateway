@@ -3,7 +3,9 @@ from utils import stringutils as su
 from utils import parseutils as pu
 from tsysconstants import *
 from client import Client
-import collections
+from parser import Parser
+from collections import OrderedDict
+from config import *
 import xmltodict
 import pprint
 
@@ -13,11 +15,8 @@ class Route():
 	def __init__(self):
 		self.authenticated = False
 		self.client = Client(debug=False)
+		self.parser = Parser()
 
-		self.phone = '999999999'
-		self.auth_code = 'WD03042015'
-		self.pos_id = '800018160066091'
-		self.zip = '999999'
 		self.gen_key = None
 
 	def extract_xml_from_msg(self, client_msg):
@@ -72,34 +71,17 @@ class Route():
 	def create_payment_response(self, data):
 		return data
 
-	def calc_lrc(self, msg):
-		lrc = 0
-
-		for i in msg:
-			lrc ^= ord(i)
-
-		return lrc
-
-	def construct_msg(self, msg):
-		tmp_msg = REC_FORM + APP_TYPE + DELIM + ROUTE_ID + msg + ETX
-
-		lrc = self.calc_lrc(tmp_msg)
-
-		final_msg = STX + tmp_msg + chr(lrc)
-
-		return final_msg
-
 	def get_auth_msg(self):
-		auth_dict = collections.OrderedDict()
-		auth_factor = collections.OrderedDict()
+		auth_dict = OrderedDict()
+		auth_factor = OrderedDict()
 
 		auth_dict[SGREQ] = {}
 
-		auth_factor['B2'] = self.zip
-		auth_factor['B1'] = self.phone
+		auth_factor['B2'] = zip
+		auth_factor['B1'] = phone
 
-		auth_dict[SGREQ]['A1'] = self.pos_id
-		auth_dict[SGREQ]['A2'] = self.auth_code
+		auth_dict[SGREQ]['A1'] = pos_id
+		auth_dict[SGREQ]['A2'] = auth_code
 		auth_dict[SGREQ]['A4'] = auth_factor
 		auth_dict[SGREQ]['A10'] = '1'
 
@@ -119,10 +101,11 @@ class Route():
 		return dict_resp
 
 	def do_authentication(self):
+		authenticated = False
 		auth_xml = self.get_auth_msg()
 		print('do_auth xml: ' + auth_xml)
 
-		auth_msg = self.construct_msg(auth_xml)
+		auth_msg = self.parser.construct_msg(auth_xml)
 		print('auth_msg: ' + auth_msg)
 
 		#auth_resp = self.client.exchange_msg(auth_msg)
@@ -134,24 +117,41 @@ class Route():
 			print('AUTHENTICATION SUCCESSFUL')
 			self.gen_key = auth_resp[SGRSP][A3]
 			print('GEN KEY: ' + self.gen_key)
+			authenticated = True
+
+		return authenticated
 
 	@timeit
 	def do_payment(self, msg):
+		#todo: validate payment_msg
+
 		if not self.authenticated:
 			print('do authentication')
-			self.do_authentication()
+			try:
+				self.authenticated = self.do_authentication()
+			except Exception as e:
+				print('this should not happen')
+				print('raise authentication exception')
+				raise e
+
 		print('payment logic')
-		"""try:
-			return self.authenticate()
-		except Exception, e:
-			raise e"""
-		raw_response = self.client.exchange_msg(msg)
+
+		#todo: create tsys payment message
+		payment_msg = self.parser.parse_dict_to_payment(msg, self.gen_key)
+
+		#send payment to tsys and receive the response
+		raw_response = self.client.exchange_msg(payment_msg)
 		print('raw response: ' + raw_response)
+
+		#extract the actual xml from the msg
 		xml_msg = self.extract_xml_from_msg(raw_response)
 		print('xml message: ' + xml_msg)
+
+		#convert the xml to dictionary
 		msg_dict = self.get_msg_dict(xml_msg)
 
+		#create appropriate response for the gateway
 		payment_response = self.create_payment_response(msg_dict)
 
-		#return self.client.exchange_msg(msg)
-		return payment_response
+		#return the response to the gateway
+		return payment_response, payment_msg

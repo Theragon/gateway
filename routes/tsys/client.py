@@ -12,7 +12,7 @@ class Client(RouteClient):
 		self.host = host
 		self.port = port
 
-		self.timeout = kwargs.get('timeout', 5)
+		self.timeout = kwargs.get('timeout', seconds)
 		print('tsys timeout: ' + str(self.timeout))
 		self.debug = kwargs.get('debug', False)
 		print('tsys debug: ' + str(self.debug))

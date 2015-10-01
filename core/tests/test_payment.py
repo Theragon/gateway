@@ -25,10 +25,11 @@ payment = \
 			u'terminalDateTime': u'20130614172956000',
 			u'nonce': u'7604056809',
 			u'authorizationGuid': u'86ee88f8-3245-4fa6-a7fb-354ef1813854',
-			u'currency': u'GBP',
+			u'currency': u'USD',
 			u'amount': u'10.00',
 			u'customerReference': u'00000001',
 			u'emvData': u'4f07a00000000430605712679999',
+			u'track2Data': u'5592000010000001=16111210000000000000',
 			u'f22': u'51010151114C',
 			u'serialNumber': u'311001304',
 			u'terminalUserId': u'OP1',
@@ -36,6 +37,8 @@ payment = \
 			u'terminalOsVersion': u'1.08.00',
 			u'transactionCounter': u'3',
 			u'accountType': u'30',
+			u'paymentCode': u'D',
+			u'tipAmount': u'0',
 			u'route': u'tsys'
 		}
 	}

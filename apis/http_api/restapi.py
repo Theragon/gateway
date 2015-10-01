@@ -139,37 +139,9 @@ def dict_to_xml(dic):
 # routes
 
 
-"""def get_path():
-	proj_path = os.path.dirname(
-			os.path.abspath(inspect.getfile(inspect.currentframe())))
-	print('proj_path: ' + proj_path)
-	return proj_path"""
-
-
-"""def path_to_routes():
-	return os.getcwd()+'/routes'"""
-
-
-"""def load_module(module):
-	#path = get_path()
-	try:
-		print('module: ' + module)
-		m = imp.find_module(module, [path_to_routes()])
-		print('module found: ' + str(m))
-		route = imp.load_module(
-			module,
-			m[0],
-			m[1],
-			('', '', 5))
-		print('route successfully loaded')
-		return route
-	except ImportError, e:
-		raise e"""
-
-
 @app.route('/viscus/cr/v1/refund', methods=[POST])
 def refund():
-	gw = Gateway()
+	#gw = Gateway()
 	#data = {}
 	#response = None
 
