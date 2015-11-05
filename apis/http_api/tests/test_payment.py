@@ -1,8 +1,9 @@
 from lxml import etree
 import unittest
 import requests
+import redis
 import json
-from mock import *
+#from mock import *
 
 payment_url = 'http://localhost:5000/viscus/cr/v1/payment'
 
@@ -48,15 +49,27 @@ class PaymentTests(unittest.TestCase):
 
 	#@unittest.skip("")
 	def test_xml_payment_tsys(self):
+		r = redis.StrictRedis(host='localhost', port=6379, db=0)
+		sub = r.pubsub(ignore_subscribe_messages=True)
+		sub.subscribe('requests')
+
 		xml = get_xml_payment('tsys')
 		resp = requests.post(payment_url, data=xml, headers=app_xml)
-		print('resp.text: ' + str(resp.text))
+		#print('resp.text: ' + str(resp.text))
 		#print('resp.content: ' + str(resp.content))
+
+		while True:
+			message = sub.get_message()
+			if message:
+				print(message)
+				msg = json.loads(message['data'])
+				print(msg)
+				break
 
 		assert resp.status_code is not None
 		#assert resp.status_code == requests.codes.ok
 
-	#@unittest.skip("")
+	@unittest.skip("")
 	def test_json_payment_tsys(self):
 		print('posting json payment')
 		payment_json = get_json_payment('tsys')

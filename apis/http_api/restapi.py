@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+#import utils.decorators as dec
 from datetime import datetime
 #from flask import Response
 from flask import request
@@ -6,6 +7,7 @@ from flask import Flask
 from flask import json
 import logging as log
 import xmltodict
+import redis
 import uuid
 import sys
 import os
@@ -15,12 +17,9 @@ proj_root = os.path.dirname(os.path.dirname(os.getcwd()))
 sys.path.append(proj_root)
 
 #from routes import *
-from core.gateway import Gateway
-from utils.decorators import timeit
 
-from lxml import etree
-#import inspect
-#import os
+from utils.decorators import timeit
+from core.gateway import Gateway
 
 app = Flask(__name__)
 #http://localhost:38181/viscus/cr/v1/payment/
@@ -38,55 +37,30 @@ msg_cache = {}
 gw = None
 txn_cntr = 0
 
+req_sub_id = 'requests'
+rsp_sub_id = 'responses'
+pub_sub_host = 'localhost'
+pub_sub_port = 6379
+pub_sub_db = 0
+
+r = redis.StrictRedis(
+	host=pub_sub_host,
+	port=pub_sub_port,
+	db=pub_sub_db
+)
+
+r2 = r.pubsub()
+r2.subscribe(rsp_sub_id)
+
 
 def initialize():
 	#do initialization
 	pass
 
-# decorators
 
-
-"""def validate_json(f):
-	@wraps(f)
-	def wrapper(*args, **kw):
-		try:
-			request.json
-		except BadRequest:
-			msg = "payload must be a valid json"
-			return jsonify({"error": msg}), 400
-		return f(*args, **kw)
-	return wrapper"""
-
-
-"""def validate_schema(schema_name):
-	def decorator(f):
-		@wraps(f)
-		def wrapper(*args, **kw):
-			try:
-				validate(request.json, current_app.config[schema_name])
-			except ValidationError, e:
-				return jsonify({"error": e.message}), 400
-			return f(*args, **kw)
-		return wrapper
-	return decorator
-
-
-def returns_xml(f):
-	@wraps(f)
-	def decorated_function(*args, **kwargs):
-		r = f(*args, **kwargs)
-		return Response(r, content_type='text/xml; charset=utf-8')
-	return decorated_function
-
-
-def returns_json(f):
-	@wraps(f)
-	def decorated_function(*args, **kwargs):
-		r = f(*args, **kwargs)
-		return Response(r, content_type='application/json; charset=utf-8')
-	return decorated_function"""
-
-# error handlers
+##################
+# error handlers #
+##################
 
 
 @app.errorhandler(404)
@@ -102,6 +76,26 @@ def internal_error(error):
 @app.errorhandler(405)
 def not_allowed(error):
 	return 'Method not allowed', 405
+
+
+###################
+# parsing methods #
+###################
+
+
+def convert_to_dict(request):
+	msg = None
+	if contains_json(request):
+		try:
+			msg = json_to_dict(request.data)
+		except ValueError:
+			return ('Malformed json', 400)
+	elif contains_xml(request):
+		try:
+			msg = xml_to_dict(request.data)
+		except Exception:
+			return ('Malformed xml', 400)
+	return msg
 
 
 def json_to_dict(jso):
@@ -136,7 +130,20 @@ def dict_to_xml(dic):
 	return xml
 
 
-# routes
+def publish(msg):
+	log.info('publishing message ' + json.dumps(msg))
+	r.publish(req_sub_id, json.dumps(msg))
+
+
+def listen(msg):
+	while True:
+		m = r.get_message()
+	return m
+
+
+###############
+# http routes #
+###############
 
 
 @app.route('/viscus/cr/v1/refund', methods=[POST])
@@ -170,20 +177,11 @@ def payment():
 	#ksn = request.headers.get('ksn')
 	#bdk = request.headers.get('bdk-index')
 
-	if contains_json(request):
-		print('received json')
-		try:
-			msg = json_to_dict(request.data)
-		except Exception, e:
-			return (e, 400)
-	elif contains_xml(request):
-		print('received xml')
-		try:
-			msg = xml_to_dict(request.data)
-		except Exception, e:
-			return (e, 400)
+	msg = convert_to_dict(request)
 
+	msg['guid'] = msg_guid
 	msg_cache[msg_guid] = msg
+	publish(msg)
 	print('msg_cache: ' + str(msg_cache))
 	print('txn_cntr: ' + str(txn_cntr))
 
@@ -257,25 +255,6 @@ def contains_xml(request):
 	return request.headers['Content-Type'] == 'text/xml' \
 		or request.headers['Content-Type'] == 'application/xml'
 
-
-def validate_json(data):
-	try:
-		json.loads(data)
-		return True
-	except ValueError:
-		return False
-
-
-def validate_xml(data):
-	print('xml: ' + data)
-	try:
-		parser = etree.XMLParser()
-		etree.fromstring(data, parser)
-		return True
-	except etree.XMLSyntaxError:
-		#log.warning('invalid xml - ' + str(e))
-		print('invalid xml - ')
-		return False
 
 if __name__ == '__main__':
 	initialize()
