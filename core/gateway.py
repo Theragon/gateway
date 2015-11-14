@@ -1,6 +1,9 @@
 from collections import OrderedDict
 
+import multiprocessing
 import pprint
+import redis
+import json
 import imp
 import os
 
@@ -57,10 +60,20 @@ class Gateway(object):
 		print('message added to msg_cache')
 		pprint.pprint(self.msg_cache)
 
+	def process_msg(self, msg):
+		print('Gateway processing message')
+		print(msg)
+		txn_type = msg['type']
+		print('type: ' + txn_type)
+
+		if txn_type == 'payment':
+			self.do_payment(msg)
+
 	@timeit
 	def do_payment(self, msg):
 		response = None
 		#acq_msg = None
+		print('Gateway doing payment')
 
 		try:
 			#verify that message is a dictionary
@@ -121,3 +134,32 @@ class Gateway(object):
 
 	def do_cancellation(self, msg):
 		pass
+
+
+def process_msg(msg):
+	gw = Gateway()
+	txn_type = msg['type']
+
+	if txn_type == 'payment':
+		try:
+			response = gw.do_payment(msg)
+			# TODO: send response back
+		except Exception:
+			# TODO: define how error is handled
+			raise e
+
+
+
+def dispatch(msg):
+	data = json.loads(msg['data'])
+	p = multiprocessing.Process(target=process_msg, args=(data,))
+	p.start()
+
+
+def main():
+	r = redis.StrictRedis(host='localhost', port=6379, db=0)
+	r = r.pubsub()
+	r.subscribe(**{'requests': dispatch})
+
+if __name__ == '__main__':
+	main()
