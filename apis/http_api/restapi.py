@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 #import utils.decorators as dec
+from xml.parsers.expat import ExpatError
 from datetime import datetime
 #from flask import Response
 from flask import request
@@ -13,13 +14,13 @@ import sys
 import os
 
 proj_root = os.path.dirname(os.path.dirname(os.getcwd()))
-#print('project root: ' + proj_root)
+print('project root: ' + proj_root)
 sys.path.append(proj_root)
 
 #from routes import *
 
 from utils.decorators import timeit
-from core.gateway import Gateway
+#from core.gateway import Gateway
 
 app = Flask(__name__)
 #http://localhost:38181/viscus/cr/v1/payment/
@@ -49,8 +50,10 @@ r = redis.StrictRedis(
 	db=pub_sub_db
 )
 
-r2 = r.pubsub()
-r2.subscribe(rsp_sub_id)
+sub = r.pubsub(ignore_subscribe_messages=True)
+sub.subscribe(rsp_sub_id)
+
+debug = True
 
 
 def initialize():
@@ -78,23 +81,42 @@ def not_allowed(error):
 	return 'Method not allowed', 405
 
 
+class InternalServerError(Exception):
+	"""docstring for InternalServerError"""
+	def __init__(self, message):
+		super(InternalServerError, self).__init__(message)
+		#self.message = message
+
+
+class BadRequestException(Exception):
+	"""docstring for BadRequestException"""
+	def __init__(self, message):
+		super(BadRequestException, self).__init__(message)
+		#self.arg = arg
+
+
 ###################
 # parsing methods #
 ###################
 
 
 def convert_to_dict(request):
+	log.info('converting to dict')
 	msg = None
 	if contains_json(request):
 		try:
 			msg = json_to_dict(request.data)
 		except ValueError:
-			return ('Malformed json', 400)
+			log.info('ValueError')
+			raise BadRequestException('Malformed json')
+			#return ('Malformed json', 400)
 	elif contains_xml(request):
 		try:
 			msg = xml_to_dict(request.data)
-		except Exception:
-			return ('Malformed xml', 400)
+		except ExpatError:
+			log.info('ExpatError')
+			raise BadRequestException('Malformed xml')
+			#return ('Malformed xml', 400)
 	return msg
 
 
@@ -117,7 +139,7 @@ def dict_to_json(dic):
 def xml_to_dict(xml):
 	try:
 		xml_dict = xmltodict.parse(xml)
-	except Exception, e:
+	except ExpatError as e:
 		raise e
 	return xml_dict
 
@@ -130,9 +152,9 @@ def dict_to_xml(dic):
 	return xml
 
 
-def publish(msg):
-	log.info('publishing message ' + json.dumps(msg))
-	r.publish(req_sub_id, json.dumps(msg))
+def add_to_queue(key, value):
+	print('adding message ' + json.dumps(value) + ' to queue ' + str(key))
+	r.rpush(key, json.dumps(value))
 
 
 def listen(msg):
@@ -140,6 +162,48 @@ def listen(msg):
 		m = r.get_message()
 	return m
 
+
+def wait_for_rsp2(guid):
+	"""
+	Subscribe to unique channel and wait for response
+	"""
+	channel_id = 'response:' + str(guid)
+	log.info('subscribing to ' + channel_id + ' and waiting for response')
+	sub.subscribe('responses')
+	sub.subscribe(channel_id)
+	for rsp in sub.listen():
+		print('response received')
+		print(rsp)
+		return json.loads(rsp['data'])
+
+
+def wait_for_rsp(guid):
+	print('waiting for guid ' + str(guid))
+	rsp = None
+	while rsp is None:
+		rsp = r.get(guid)
+	r.delete(guid)
+	return json.loads(rsp)
+
+
+def create_http_rsp(core_rsp, http_req):
+	if contains_xml(http_req):
+		try:
+			xml_response = dict_to_xml(core_rsp)
+			http_rsp = (xml_response, 200, app_xml)
+		except Exception:
+			log.info('Error converting core response to xml')
+			raise InternalServerError('Internal server error')
+
+	elif contains_json(http_req):
+		try:
+			json_response = dict_to_json(core_rsp)
+			http_rsp = (json_response, 200, app_json)
+		except Exception:
+			log.info('Error converting core response to json')
+			raise InternalServerError('Internal server error')
+
+	return http_rsp
 
 ###############
 # http routes #
@@ -160,49 +224,38 @@ def refund():
 @app.route('/viscus/cr/v1/payment', methods=[POST])
 @timeit
 def payment():
-	gw = Gateway()
-	global msg_cache
-	global txn_cntr
-	txn_cntr += 1
-	msg = {}
-	response = None
+	#gw = Gateway()
+	#http_rsp = None
+	#msg = {}
 
 	#logging.basicConfig(filename='example.log',level=logging.INFO)
 	log.basicConfig(level=log.INFO, format='%(asctime)s %(message)s')
 
 	server_date_time = datetime.now()
 	log.info('server time: ' + str(server_date_time))
-	msg_guid = get_guid()
+	msg_guid = str(get_guid())
 	log.info('message guid: ' + str(msg_guid))
 	#ksn = request.headers.get('ksn')
 	#bdk = request.headers.get('bdk-index')
 
-	msg = convert_to_dict(request)
+	try:
+		msg = convert_to_dict(request)
+	except BadRequestException as e:
+		return (e.message, 400)
 
-	msg['guid'] = msg_guid
-	msg_cache[msg_guid] = msg
-	publish(msg)
-	print('msg_cache: ' + str(msg_cache))
-	print('txn_cntr: ' + str(txn_cntr))
+	msg['payment']['guid'] = msg_guid
+	msg['type'] = msg.iterkeys().next()
+	log.info('type: ' + msg['type'])
+	add_to_queue('incoming', msg)
+	core_rsp = wait_for_rsp(msg_guid)
 
 	try:
-		gw_response = gw.do_payment(msg)
-		#make sure gw_response is dict
+		http_rsp = create_http_rsp(core_rsp, request)
+	except Exception as e:
+		return (e.message, 500)
 
-		if contains_json(request):
-			json_response = dict_to_json(gw_response)
-			response = (json_response, 200, app_json)
-
-		elif contains_xml(request):
-			xml_response = dict_to_xml(gw_response)
-			response = (xml_response, 200, text_xml)
-
-	except Exception, e:
-		print('caught exception ' + str(e) + ' from gateway')
-		response = (e, 500)
-
-	print('returning ' + str(response))
-	return response
+	print('returning ' + str(http_rsp))
+	return http_rsp
 
 
 @app.route('/viscus/routestatus/<route>')
@@ -258,4 +311,4 @@ def contains_xml(request):
 
 if __name__ == '__main__':
 	initialize()
-	app.run(debug=True)
+	app.run(debug=debug)
