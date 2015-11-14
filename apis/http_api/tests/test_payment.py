@@ -1,7 +1,10 @@
 from lxml import etree
+#import multiprocessing
+import threading
 import unittest
 import requests
 import redis
+from multiprocessing import Queue
 import json
 #from mock import *
 
@@ -13,6 +16,30 @@ NOT_ALLOWED = 405
 app_xml = {'Content-Type': 'application/xml'}
 text_xml = {'Content-Type': 'text/xml'}
 app_json = {'Content-Type': 'application/json'}
+
+
+red = redis.StrictRedis(host='localhost', port=6379, db=0)
+ps = red.pubsub(ignore_subscribe_messages=True)
+ps.subscribe('requests')
+
+rsp = None
+
+
+def get_msg():
+	print('getting message')
+	msg = red.blpop('incoming', timeout=0)
+	print('msg: ' + str(msg[1]))
+	return json.loads(msg[1])
+
+
+def post_payment(queue):
+	#global rsp
+	xml = get_xml_payment('tsys')
+	http_rsp = requests.post(payment_url, data=xml, headers=app_xml)
+	print('thread exiting')
+	print(http_rsp.text)
+	#rsp = json.loads(r.text)
+	queue.put(http_rsp)
 
 
 class PaymentTests(unittest.TestCase):
@@ -35,38 +62,40 @@ class PaymentTests(unittest.TestCase):
 		assert resp.status_code == requests.codes.not_allowed
 		assert resp.text == 'Method not allowed'
 
-	@unittest.skip("")
-	def test_post_json(self):
-		resp = requests.post(
-			payment_url,
-			data=json.dumps(payment_json),
-			headers=app_json)
-		print('resp.text: ' + str(resp.text))
-		#print('resp.content: ' + str(resp.content))
-		#print('dir(resp): ' + str(dir(resp)))
-		assert resp.status_code == requests.codes.ok
-		#assert resp.text == 'OK'
 
 	#@unittest.skip("")
 	def test_xml_payment_tsys(self):
-		r = redis.StrictRedis(host='localhost', port=6379, db=0)
-		sub = r.pubsub(ignore_subscribe_messages=True)
-		sub.subscribe('requests')
+		# Make sure the db is clean before test
+		red.flushdb()
 
-		xml = get_xml_payment('tsys')
-		resp = requests.post(payment_url, data=xml, headers=app_xml)
-		#print('resp.text: ' + str(resp.text))
-		#print('resp.content: ' + str(resp.content))
+		queue = Queue()
 
-		while True:
-			message = sub.get_message()
-			if message:
-				print(message)
-				msg = json.loads(message['data'])
-				print(msg)
-				break
+		# Create a thread to wait for the http response in the background
+		t = threading.Thread(target=post_payment, args=(queue,))
+		t.start()
 
-		assert resp.status_code is not None
+		# Get the message from the rest interface incoming message queue
+		msg = get_msg()
+
+		# Assert that request was added to message queue
+		assert msg is not None
+		print(msg)
+
+		guid = str(msg['payment']['guid'])
+
+		# Create a core response
+		core_rsp = create_core_rsp(guid)
+		print('setting ' + guid + ' to queue')
+
+		# Put the response on the outgoing queue
+		red.set(guid, core_rsp)
+
+		# Wait for background thread to get http response
+		t.join()
+		print('thread joined')
+		http_rsp = queue.get()
+		print(http_rsp)
+		#print(msg)
 		#assert resp.status_code == requests.codes.ok
 
 	@unittest.skip("")
@@ -93,9 +122,6 @@ class PaymentTests(unittest.TestCase):
 		xml = get_xml_payment('test')
 		resp = requests.post(payment_url, data=xml, headers=app_xml)
 		assert resp is not None
-		"""with patch.object(ProductionClass, 'method', return_value=None) as mock_method:
-									thing = ProductionClass()
-									thing.method(1, 2, 3)"""
 
 
 def get_xml_payment(route='tsys'):
@@ -121,6 +147,34 @@ def get_xml_payment(route='tsys'):
 	etree.SubElement(root, "accountType").text = "30"
 	etree.SubElement(root, "route").text = route
 	return etree.tostring(root)
+
+
+def create_core_rsp(guid):
+	core_rsp = \
+		{
+			'payment':
+			{
+				'paynentGuid': guid,
+				'amount': '100.00',
+				'currency': 'GBP',
+				'cardTypeName': 'MasterCard',
+				'maskedCardNumber': '************9004',
+				'expiryDateMMYY': '0308',
+				'customerReference': '00000040',
+				'acquirerTid': '90008910',
+				'approvalCode': '013795',
+				'issuerResponseText': 'TPOS 0000',
+				'batchNumber': '1215',
+				'transNumber': '19711',
+				'serverDateTime': '20130618154721688',
+				'terminalDateTime': '20130618154657000',
+				'agreementNumber': '6819106',
+				'cardAcceptorName': 'DEV_PED08',
+				'cardAcceptorAddress': 'DEV_PED08',
+				'nonce': '7604056809'
+			}
+		}
+	return json.dumps(core_rsp)
 
 
 def get_json_payment(route='tsys'):
