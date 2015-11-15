@@ -1,13 +1,10 @@
 from lxml import etree
-#import multiprocessing
 import threading
 import unittest
 import requests
 import redis
-#from multiprocessing import Queue
 import Queue
 import json
-#from mock import *
 
 payment_url = 'http://localhost:5000/viscus/cr/v1/payment'
 
@@ -23,7 +20,10 @@ red = redis.StrictRedis(host='localhost', port=6379, db=0)
 ps = red.pubsub(ignore_subscribe_messages=True)
 ps.subscribe('requests')
 
-rsp = None
+# Create a thread to run tasks in background
+bg_thread = threading.Thread()
+# Create a queue to store results from background thread
+msg_store = Queue.Queue()
 
 
 def get_msg():
@@ -33,38 +33,53 @@ def get_msg():
 	return json.loads(msg[1])
 
 
-def post_xml_payment(queue):
-	#global rsp
+def post_xml_payment():
+	global msg_store
 	xml = get_xml_payment('tsys')
 	http_rsp = requests.post(payment_url, data=xml, headers=app_xml)
-	print('thread exiting')
-	#print(http_rsp.text)
-	#rsp = json.loads(r.text)
-	queue.put(http_rsp)
+	msg_store.put(http_rsp)
+
+
+def post_json_payment():
+	global msg_store
+	json = get_json_payment('tsys')
+	http_rsp = requests.post(payment_url, data=json, headers=app_json)
+	msg_store.put(http_rsp)
 
 
 def run_in_background(method):
-	# Create a queue to store the result from the thread
-	queue = Queue.Queue()
-	# Create a thread to wait for the http response in the background
-	t = threading.Thread(target=method, args=(queue,))
-	t.start()
-	return queue
+	global bg_thread
+	# Initialize thread with a method and run it in background
+	bg_thread = threading.Thread(target=method, args=())
+	bg_thread.start()
+
+
+def get_result():
+	"""
+	Wait for background thread to finish, get its result from queue and return it
+	"""
+	global bg_thread
+	global msg_store
+	bg_thread.join()
+	return msg_store.get()
 
 
 class PaymentTests(unittest.TestCase):
 
 	"""docstring"""
 
+	def setUp(self):
+		# Make sure the db is clean before each test
+		print('flushing db')
+		red.flushdb()
+
 	@classmethod
 	def setUpClass(cls):
-		#global payment_xml
-		#payment_xml = get_xml_payment()
 		pass
 
-	'''@classmethod
+	@classmethod
 	def tearDownClass(cls):
-		print('tearing down tests')'''
+		pass
 
 	@unittest.skip("")
 	def test_get(self):
@@ -74,12 +89,9 @@ class PaymentTests(unittest.TestCase):
 
 
 	#@unittest.skip("")
-	def test_xml_payment_tsys(self):
-		# Make sure the db is clean before test
-		red.flushdb()
-
+	def test_01_xml_payment_tsys(self):
 		# Run the http post request in background and add the result to queue
-		queue = run_in_background(post_xml_payment)
+		run_in_background(post_xml_payment)
 
 		# Get the message from the rest interface incoming message queue
 		msg = get_msg()
@@ -97,37 +109,29 @@ class PaymentTests(unittest.TestCase):
 		# Put the response on the outgoing queue
 		red.set(guid, core_rsp)
 
-		# Wait for background thread to return http response
-		queue.join()
 		# Get the result from the queue
-		http_rsp = queue.get()
+		http_rsp = get_result()
 		print(http_rsp.text)
-		#assert resp.status_code == requests.codes.ok
+		assert http_rsp.status_code == requests.codes.ok
 
-	@unittest.skip("")
-	def test_json_payment_tsys(self):
-		print('posting json payment')
-		payment_json = get_json_payment('tsys')
-		#headers = {'Content-Type': 'application/xml'}
-		resp = requests.post(payment_url, data=payment_json, headers=app_json)
-		print('resp.text: ' + str(resp.text))
-		#print('resp.content: ' + str(resp.content))
+	#@unittest.skip("")
+	def test_02_json_payment_tsys(self):
+		run_in_background(post_json_payment)
 
-		assert resp.status_code is not None
+		msg = get_msg()
 
-	@unittest.skip("")
-	def test_xml_payment_evo(self):
-		xml = get_xml_payment('evo')
-		resp = requests.post(payment_url, data=xml, headers=app_xml)
-		print('resp.text: ' + str(resp.text))
-		assert resp is not None
-		assert resp.status_code == requests.codes.server_error
+		assert msg is not None
+		print(msg)
 
-	@unittest.skip("")
-	def test_correct_method_called(self):
-		xml = get_xml_payment('test')
-		resp = requests.post(payment_url, data=xml, headers=app_xml)
-		assert resp is not None
+		guid = str(msg['payment']['guid'])
+
+		core_rsp = create_core_rsp(guid)
+
+		red.set(guid, core_rsp)
+
+		http_rsp = get_result()
+
+		assert http_rsp is not None
 
 
 def get_xml_payment(route='tsys'):
