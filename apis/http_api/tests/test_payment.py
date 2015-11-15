@@ -4,7 +4,8 @@ import threading
 import unittest
 import requests
 import redis
-from multiprocessing import Queue
+#from multiprocessing import Queue
+import Queue
 import json
 #from mock import *
 
@@ -32,14 +33,23 @@ def get_msg():
 	return json.loads(msg[1])
 
 
-def post_payment(queue):
+def post_xml_payment(queue):
 	#global rsp
 	xml = get_xml_payment('tsys')
 	http_rsp = requests.post(payment_url, data=xml, headers=app_xml)
 	print('thread exiting')
-	print(http_rsp.text)
+	#print(http_rsp.text)
 	#rsp = json.loads(r.text)
 	queue.put(http_rsp)
+
+
+def run_in_background(method):
+	# Create a queue to store the result from the thread
+	queue = Queue.Queue()
+	# Create a thread to wait for the http response in the background
+	t = threading.Thread(target=method, args=(queue,))
+	t.start()
+	return queue
 
 
 class PaymentTests(unittest.TestCase):
@@ -68,11 +78,8 @@ class PaymentTests(unittest.TestCase):
 		# Make sure the db is clean before test
 		red.flushdb()
 
-		queue = Queue()
-
-		# Create a thread to wait for the http response in the background
-		t = threading.Thread(target=post_payment, args=(queue,))
-		t.start()
+		# Run the http post request in background and add the result to queue
+		queue = run_in_background(post_xml_payment)
 
 		# Get the message from the rest interface incoming message queue
 		msg = get_msg()
@@ -90,12 +97,11 @@ class PaymentTests(unittest.TestCase):
 		# Put the response on the outgoing queue
 		red.set(guid, core_rsp)
 
-		# Wait for background thread to get http response
-		t.join()
-		print('thread joined')
+		# Wait for background thread to return http response
+		queue.join()
+		# Get the result from the queue
 		http_rsp = queue.get()
-		print(http_rsp)
-		#print(msg)
+		print(http_rsp.text)
 		#assert resp.status_code == requests.codes.ok
 
 	@unittest.skip("")
