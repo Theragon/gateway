@@ -224,9 +224,6 @@ def refund():
 @app.route('/viscus/cr/v1/payment', methods=[POST])
 @timeit
 def payment():
-	#gw = Gateway()
-	#http_rsp = None
-	#msg = {}
 
 	#logging.basicConfig(filename='example.log',level=logging.INFO)
 	log.basicConfig(level=log.INFO, format='%(asctime)s %(message)s')
