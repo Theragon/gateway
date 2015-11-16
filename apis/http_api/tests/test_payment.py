@@ -1,5 +1,5 @@
-from lxml import etree
 import threading
+import xmltodict
 import unittest
 import requests
 import redis
@@ -27,10 +27,12 @@ msg_store = Queue.Queue()
 
 
 def get_msg():
-	print('getting message')
+	"""
+	Pop message from message queue and return its payload
+	"""
 	msg = red.blpop('incoming', timeout=0)
-	print('msg: ' + str(msg[1]))
-	return json.loads(msg[1])
+	payload = msg[1]
+	return json.loads(payload)
 
 
 def post_xml_payment():
@@ -69,9 +71,17 @@ class PaymentTests(unittest.TestCase):
 	"""docstring"""
 
 	def setUp(self):
+		"""
+		Initialization to be run before each test
+		"""
 		# Make sure the db is clean before each test
-		print('flushing db')
 		red.flushdb()
+
+	def tearDown(self):
+		"""
+		Cleanup to be run after each test
+		"""
+		pass
 
 	@classmethod
 	def setUpClass(cls):
@@ -79,7 +89,8 @@ class PaymentTests(unittest.TestCase):
 
 	@classmethod
 	def tearDownClass(cls):
-		pass
+		# Make sure db has been flushed after tests have finished
+		red.flushdb()
 
 	@unittest.skip("")
 	def test_get(self):
@@ -134,31 +145,6 @@ class PaymentTests(unittest.TestCase):
 		assert http_rsp is not None
 
 
-def get_xml_payment(route='tsys'):
-	root = etree.Element("payment")
-	etree.SubElement(root, "cardAcceptorId").text = "TestHekla5"
-	etree.SubElement(root, "paymentScenario").text = "CHIP"
-	etree.SubElement(root, "authorizationGuid").text = \
-		"""86ee88f8-3245-4fa6-a7fb-354ef1813854"""
-	etree.SubElement(root, "terminalDateTime").text = "20130614172956000"
-	etree.SubElement(root, "nonce").text = "7604056809"
-	etree.SubElement(root, "currency").text = "GBP"
-	etree.SubElement(root, "amount").text = "10.00"
-	etree.SubElement(root, "softwareVersion").text = "1.3.1.15"
-	etree.SubElement(root, "configVersion").text = "12"
-	etree.SubElement(root, "customerReference").text = "00000001"
-	etree.SubElement(root, "emvData").text = "4f07a00000000430605712679999"
-	etree.SubElement(root, "f22").text = "51010151114C"
-	etree.SubElement(root, "serialNumber").text = "311001304"
-	etree.SubElement(root, "terminalUserId").text = "OP1"
-	etree.SubElement(root, "deviceType").text = "MPED400"
-	etree.SubElement(root, "terminalOsVersion").text = "1.08.00"
-	etree.SubElement(root, "transactionCounter").text = "3"
-	etree.SubElement(root, "accountType").text = "30"
-	etree.SubElement(root, "route").text = route
-	return etree.tostring(root)
-
-
 def create_core_rsp(guid):
 	core_rsp = \
 		{
@@ -185,6 +171,12 @@ def create_core_rsp(guid):
 			}
 		}
 	return json.dumps(core_rsp)
+
+
+def get_xml_payment(route='tsys'):
+	json_payment = json.loads(get_json_payment(route))
+	xml_payment = xmltodict.unparse(json_payment, full_document=False)
+	return xml_payment
 
 
 def get_json_payment(route='tsys'):
