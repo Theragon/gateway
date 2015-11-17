@@ -7,6 +7,7 @@ import Queue
 import json
 
 payment_url = 'http://localhost:5000/viscus/cr/v1/payment'
+transaction_url = 'http://localhost:5000/viscus/cr/v1/transaction'
 
 OK = 200
 NOT_ALLOWED = 405
@@ -35,17 +36,41 @@ def get_msg():
 	return json.loads(payload)
 
 
-def post_xml_payment():
-	global msg_store
-	xml = get_xml_payment('tsys')
-	http_rsp = requests.post(payment_url, data=xml, headers=app_xml)
-	msg_store.put(http_rsp)
+def post_json_req(url, data):
+	http_rsp = requests.post(url, data=data, headers=app_json)
+	return http_rsp
+
+
+def post_xml_req(url, data):
+	http_rsp = requests.post(url, data=data, headers=app_xml)
+	return http_rsp
 
 
 def post_json_payment():
 	global msg_store
-	json = get_json_payment('tsys')
-	http_rsp = requests.post(payment_url, data=json, headers=app_json)
+	payment = create_json_payment('tsys')
+	http_rsp = post_json_req(transaction_url, payment)
+	msg_store.put(http_rsp)
+
+
+def post_xml_payment():
+	global msg_store
+	payment = create_xml_payment('tsys')
+	http_rsp = post_xml_req(transaction_url, payment)
+	msg_store.put(http_rsp)
+
+
+def post_json_authorization():
+	global msg_store
+	authorization = create_json_authorization('tsys')
+	http_rsp = post_json_req(transaction_url, authorization)
+	msg_store.put(http_rsp)
+
+
+def post_xml_authorization():
+	global msg_store
+	authorization = create_xml_authorization('tsys')
+	http_rsp = post_xml_req(transaction_url, authorization)
 	msg_store.put(http_rsp)
 
 
@@ -94,7 +119,7 @@ class PaymentTests(unittest.TestCase):
 
 	@unittest.skip("")
 	def test_get(self):
-		resp = requests.get(payment_url)
+		resp = requests.get(transaction_url)
 		assert resp.status_code == requests.codes.not_allowed
 		assert resp.text == 'Method not allowed'
 
@@ -111,18 +136,18 @@ class PaymentTests(unittest.TestCase):
 		assert msg is not None
 		print(msg)
 
-		guid = str(msg['payment']['guid'])
+		txn_type = msg.iterkeys().next()
+		guid = str(msg[txn_type]['guid'])
 
 		# Create a core response
 		core_rsp = create_core_rsp(guid)
-		print('setting ' + guid + ' to queue')
+		#print('setting ' + guid + ' to queue')
 
 		# Put the response on the outgoing queue
 		red.set(guid, core_rsp)
 
 		# Get the result from the queue
 		http_rsp = get_result()
-		print(http_rsp.text)
 		assert http_rsp.status_code == requests.codes.ok
 
 	#@unittest.skip("")
@@ -134,7 +159,50 @@ class PaymentTests(unittest.TestCase):
 		assert msg is not None
 		print(msg)
 
-		guid = str(msg['payment']['guid'])
+		txn_type = msg.iterkeys().next()
+		guid = str(msg[txn_type]['guid'])
+
+		core_rsp = create_core_rsp(guid)
+
+		red.set(guid, core_rsp)
+
+		http_rsp = get_result()
+
+		assert http_rsp is not None
+
+
+	#@unittest.skip("")
+	def test_03_json_authorization_tsys(self):
+		run_in_background(post_json_authorization)
+
+		msg = get_msg()
+
+		assert msg is not None
+		print(msg)
+
+		txn_type = msg.iterkeys().next()
+		guid = str(msg[txn_type]['guid'])
+
+		core_rsp = create_core_rsp(guid)
+
+		red.set(guid, core_rsp)
+
+		http_rsp = get_result()
+
+		assert http_rsp is not None
+
+
+	#@unittest.skip("")
+	def test_04_xml_authorization_tsys(self):
+		run_in_background(post_xml_authorization)
+
+		msg = get_msg()
+
+		assert msg is not None
+		print(msg)
+
+		txn_type = msg.iterkeys().next()
+		guid = str(msg[txn_type]['guid'])
 
 		core_rsp = create_core_rsp(guid)
 
@@ -150,7 +218,7 @@ def create_core_rsp(guid):
 		{
 			'payment':
 			{
-				'paynentGuid': guid,
+				'paymentGuid': guid,
 				'amount': '100.00',
 				'currency': 'GBP',
 				'cardTypeName': 'MasterCard',
@@ -173,13 +241,7 @@ def create_core_rsp(guid):
 	return json.dumps(core_rsp)
 
 
-def get_xml_payment(route='tsys'):
-	json_payment = json.loads(get_json_payment(route))
-	xml_payment = xmltodict.unparse(json_payment, full_document=False)
-	return xml_payment
-
-
-def get_json_payment(route='tsys'):
+def create_json_payment(route='tsys'):
 	payment_json = \
 		{
 			"payment":
@@ -206,6 +268,48 @@ def get_json_payment(route='tsys'):
 			}
 		}
 	return json.dumps(payment_json)
+
+
+def create_xml_payment(route='tsys'):
+	json_payment = json.loads(create_json_payment(route))
+	xml_payment = xmltodict.unparse(json_payment, full_document=False)
+	return xml_payment
+
+
+def create_json_authorization(route='tsys'):
+	authorization_json = \
+		{
+			'authorization':
+			{
+				'cardAcceptorId': 'TestHekla5',
+				'paymentScenario': 'CHIP',
+				'softwareVersion': '1.3.1.7',
+				'configVersion': '1',
+				'terminalDateTime': '20130610114622000',
+				'nonce': '1765188353',
+				'currency': 'GBP',
+				'amount': '1.00',
+				'customerReference': '00000035',
+				'emvData': '4f07a000000004101057115413330089020011d1412601079',
+				'f22': '51010151114C',
+				'serialNumber': '232312332',
+				'terminalUserId': '2233223',
+				'deviceType': 'MPED400',
+				'terminalOsVersion': '1.08.00',
+				'f52': '5f2a0202085f3401018202',
+				'transactionCounter': '1',
+				'accountType': '30',
+				'tipAmount': '0.00',
+				'route': route
+			}
+		}
+	return json.dumps(authorization_json)
+
+
+def create_xml_authorization(route='tsys'):
+	json_authorization = json.loads(create_json_authorization(route))
+	xml_authorization = xmltodict.unparse(json_authorization, full_document=False)
+	return xml_authorization
 
 
 if __name__ == '__main__':
