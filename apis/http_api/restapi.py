@@ -55,6 +55,9 @@ sub.subscribe(rsp_sub_id)
 
 debug = True
 
+#logging.basicConfig(filename='example.log',level=logging.INFO)
+log.basicConfig(level=log.INFO, format='%(asctime)s %(message)s')
+
 
 def initialize():
 	#do initialization
@@ -225,8 +228,6 @@ def refund():
 @timeit
 def payment():
 
-	#logging.basicConfig(filename='example.log',level=logging.INFO)
-	log.basicConfig(level=log.INFO, format='%(asctime)s %(message)s')
 
 	server_date_time = datetime.now()
 	log.info('server time: ' + str(server_date_time))
@@ -245,6 +246,43 @@ def payment():
 	log.info('type: ' + msg['type'])
 	add_to_queue('incoming', msg)
 	core_rsp = wait_for_rsp(msg_guid)
+
+	try:
+		http_rsp = create_http_rsp(core_rsp, request)
+	except Exception as e:
+		return (e.message, 500)
+
+	print('returning ' + str(http_rsp))
+	return http_rsp
+
+
+@timeit
+def do_transaction(msg):
+	server_date_time = datetime.now()
+	log.info('server time: ' + str(server_date_time))
+	msg_guid = str(get_guid())
+	log.info('message guid: ' + str(msg_guid))
+
+	txn_type = msg.iterkeys().next()
+
+	msg[txn_type]['guid'] = msg_guid
+	#msg['type'] = txn_type
+	#log.info('type: ' + msg['type'])
+	add_to_queue('incoming', msg)
+	core_rsp = wait_for_rsp(msg_guid)
+
+	return core_rsp
+
+
+@app.route('/viscus/cr/v1/transaction', methods=[POST])
+#@timeit
+def transaction():
+	try:
+		msg = convert_to_dict(request)
+	except BadRequestException as e:
+		return (e.message, 400)
+
+	core_rsp = do_transaction(msg)
 
 	try:
 		http_rsp = create_http_rsp(core_rsp, request)
