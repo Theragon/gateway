@@ -117,7 +117,7 @@ class PaymentTests(unittest.TestCase):
 		# Make sure db has been flushed after tests have finished
 		red.flushdb()
 
-	@unittest.skip("")
+	#@unittest.skip("")
 	def test_get(self):
 		resp = requests.get(transaction_url)
 		assert resp.status_code == requests.codes.not_allowed
@@ -213,6 +213,21 @@ class PaymentTests(unittest.TestCase):
 		assert http_rsp is not None
 
 
+	#@unittest.skip('')
+	def test_05_xml_invalid(self):
+		http_rsp = post_xml_req(transaction_url, 'invalid xml')
+
+		assert http_rsp.status_code == 400
+
+
+	#@unittest.skip('')
+	def test_06_json_invalid(self):
+		http_rsp = post_json_req(transaction_url, 'invalid json')
+
+		assert http_rsp.status_code == 400
+
+
+# TODO: create different core rsps for different txn types
 def create_core_rsp(guid):
 	core_rsp = \
 		{
@@ -313,4 +328,7 @@ def create_xml_authorization(route='tsys'):
 
 
 if __name__ == '__main__':
-	unittest.main()
+	suite = unittest.TestLoader().loadTestsFromTestCase(PaymentTests)
+	unittest.TextTestRunner(verbosity=2).run(suite)
+
+	#unittest.main()
