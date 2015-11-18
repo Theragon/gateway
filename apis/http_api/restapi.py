@@ -10,6 +10,7 @@ import logging as log
 import xmltodict
 import redis
 import uuid
+import time
 import sys
 import os
 
@@ -84,11 +85,20 @@ def not_allowed(error):
 	return 'Method not allowed', 405
 
 
+class GatewayTimeoutException(Exception):
+	"""docstring for GatewayTimeoutException"""
+	def __init__(self, message):
+		super(GatewayTimeoutException, self).__init__(message)
+		#self.message = message
+		self.status = 504
+
+
 class InternalServerError(Exception):
 	"""docstring for InternalServerError"""
 	def __init__(self, message):
 		super(InternalServerError, self).__init__(message)
 		#self.message = message
+		self.status = 500
 
 
 class BadRequestException(Exception):
@@ -96,6 +106,7 @@ class BadRequestException(Exception):
 	def __init__(self, message):
 		super(BadRequestException, self).__init__(message)
 		#self.arg = arg
+		self.status = 400
 
 
 ###################
@@ -157,7 +168,10 @@ def dict_to_xml(dic):
 
 def add_to_queue(key, value):
 	print('adding message ' + json.dumps(value) + ' to queue ' + str(key))
-	r.rpush(key, json.dumps(value))
+	try:
+		r.rpush(key, json.dumps(value))
+	except Exception as e:
+		raise e
 
 
 def listen(msg):
@@ -166,25 +180,24 @@ def listen(msg):
 	return m
 
 
-def wait_for_rsp2(guid):
-	"""
-	Subscribe to unique channel and wait for response
-	"""
-	channel_id = 'response:' + str(guid)
-	log.info('subscribing to ' + channel_id + ' and waiting for response')
-	sub.subscribe('responses')
-	sub.subscribe(channel_id)
-	for rsp in sub.listen():
-		print('response received')
-		print(rsp)
-		return json.loads(rsp['data'])
+def now():
+	return time.time()
 
 
-def wait_for_rsp(guid):
+def get_value(key):
+	return r.get(key)
+
+
+def wait_for_rsp(guid, timeout=None):
 	print('waiting for guid ' + str(guid))
 	rsp = None
+	start = now()
 	while rsp is None:
-		rsp = r.get(guid)
+		rsp = get_value(guid)
+		diff = now() - start
+		if timeout and diff > timeout:
+			raise GatewayTimeoutException('Operation timed out')
+
 	r.delete(guid)
 	return json.loads(rsp)
 
@@ -264,12 +277,20 @@ def do_transaction(msg):
 	log.info('message guid: ' + str(msg_guid))
 
 	txn_type = msg.iterkeys().next()
-
 	msg[txn_type]['guid'] = msg_guid
+
 	#msg['type'] = txn_type
 	#log.info('type: ' + msg['type'])
-	add_to_queue('incoming', msg)
-	core_rsp = wait_for_rsp(msg_guid)
+	try:
+		add_to_queue('incoming', msg)
+	except Exception as e:
+		# Some serious database error needs to be handled
+		raise e
+
+	try:
+		core_rsp = wait_for_rsp(msg_guid)
+	except GatewayTimeoutException as e:
+		raise e
 
 	return core_rsp
 
@@ -280,14 +301,17 @@ def transaction():
 	try:
 		msg = convert_to_dict(request)
 	except BadRequestException as e:
-		return (e.message, 400)
+		return (e.message, e.status)
 
-	core_rsp = do_transaction(msg)
+	try:
+		core_rsp = do_transaction(msg)
+	except GatewayTimeoutException as e:
+		return (e.message, e.status)
 
 	try:
 		http_rsp = create_http_rsp(core_rsp, request)
-	except Exception as e:
-		return (e.message, 500)
+	except InternalServerError as e:
+		return (e.message, e.status)
 
 	print('returning ' + str(http_rsp))
 	return http_rsp
