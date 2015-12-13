@@ -45,14 +45,14 @@ pub_sub_host = 'localhost'
 pub_sub_port = 6379
 pub_sub_db = 0
 
-r = redis.StrictRedis(
+red = redis.StrictRedis(
 	host=pub_sub_host,
 	port=pub_sub_port,
 	db=pub_sub_db
 )
 
-sub = r.pubsub(ignore_subscribe_messages=True)
-sub.subscribe(rsp_sub_id)
+ps = red.pubsub(ignore_subscribe_messages=True)
+ps.subscribe(rsp_sub_id)
 
 debug = True
 
@@ -83,6 +83,11 @@ def internal_error(error):
 @app.errorhandler(405)
 def not_allowed(error):
 	return 'Method not allowed', 405
+
+
+##############
+# Exceptions #
+##############
 
 
 class GatewayTimeoutException(Exception):
@@ -169,14 +174,14 @@ def dict_to_xml(dic):
 def add_to_queue(key, value):
 	print('adding message ' + json.dumps(value) + ' to queue ' + str(key))
 	try:
-		r.rpush(key, json.dumps(value))
+		red.rpush(key, json.dumps(value))
 	except Exception as e:
 		raise e
 
 
 def listen(msg):
 	while True:
-		m = r.get_message()
+		m = red.get_message()
 	return m
 
 
@@ -185,7 +190,7 @@ def now():
 
 
 def get_value(key):
-	return r.get(key)
+	return red.get(key)
 
 
 def wait_for_rsp2(guid, timeout=None):
@@ -198,12 +203,12 @@ def wait_for_rsp2(guid, timeout=None):
 		if timeout and diff > timeout:
 			raise GatewayTimeoutException('Operation timed out')
 
-	r.delete(guid)
+	red.delete(guid)
 	return json.loads(rsp)
 
 
 def wait_for_rsp(guid, timeout=0):
-	rsp = r.blpop(guid, timeout=timeout)
+	rsp = red.blpop(guid, timeout=timeout)
 	return json.loads(rsp[1])
 
 
