@@ -188,7 +188,7 @@ def get_value(key):
 	return r.get(key)
 
 
-def wait_for_rsp(guid, timeout=None):
+def wait_for_rsp2(guid, timeout=None):
 	print('waiting for guid ' + str(guid))
 	rsp = None
 	start = now()
@@ -200,6 +200,11 @@ def wait_for_rsp(guid, timeout=None):
 
 	r.delete(guid)
 	return json.loads(rsp)
+
+
+def wait_for_rsp(guid, timeout=0):
+	rsp = r.blpop(guid, timeout=timeout)
+	return json.loads(rsp[1])
 
 
 def create_http_rsp(core_rsp, http_req):
@@ -228,42 +233,41 @@ def create_http_rsp(core_rsp, http_req):
 
 @app.route('/viscus/cr/v1/refund', methods=[POST])
 def refund():
-	#gw = Gateway()
-	#data = {}
-	#response = None
-
-	msg_guid = get_guid()
-
-	return msg_guid
-
-
-@app.route('/viscus/cr/v1/payment', methods=[POST])
-@timeit
-def payment():
-
-
-	server_date_time = datetime.now()
-	log.info('server time: ' + str(server_date_time))
-	msg_guid = str(get_guid())
-	log.info('message guid: ' + str(msg_guid))
-	#ksn = request.headers.get('ksn')
-	#bdk = request.headers.get('bdk-index')
-
 	try:
 		msg = convert_to_dict(request)
 	except BadRequestException as e:
-		return (e.message, 400)
+		return (e.message, e.status)
 
-	msg['payment']['guid'] = msg_guid
-	msg['type'] = msg.iterkeys().next()
-	log.info('type: ' + msg['type'])
-	add_to_queue('incoming', msg)
-	core_rsp = wait_for_rsp(msg_guid)
+	try:
+		core_rsp = do_transaction(msg)
+	except GatewayTimeoutException as e:
+		return (e.message, e.status)
 
 	try:
 		http_rsp = create_http_rsp(core_rsp, request)
-	except Exception as e:
-		return (e.message, 500)
+	except InternalServerError as e:
+		return (e.message, e.status)
+
+	print('returning ' + str(http_rsp))
+	return http_rsp
+
+
+@app.route('/viscus/cr/v1/payment', methods=[POST])
+def payment():
+	try:
+		msg = convert_to_dict(request)
+	except BadRequestException as e:
+		return (e.message, e.status)
+
+	try:
+		core_rsp = do_transaction(msg)
+	except GatewayTimeoutException as e:
+		return (e.message, e.status)
+
+	try:
+		http_rsp = create_http_rsp(core_rsp, request)
+	except InternalServerError as e:
+		return (e.message, e.status)
 
 	print('returning ' + str(http_rsp))
 	return http_rsp
@@ -278,9 +282,8 @@ def do_transaction(msg):
 
 	txn_type = msg.iterkeys().next()
 	msg[txn_type]['guid'] = msg_guid
+	log.info('type: ' + txn_type)
 
-	#msg['type'] = txn_type
-	#log.info('type: ' + msg['type'])
 	try:
 		add_to_queue('incoming', msg)
 	except Exception as e:
