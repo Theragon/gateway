@@ -4,7 +4,7 @@ import json
 import sys
 from Queue import Queue
 
-from tsysvalidator import validate_payment, ValidationError
+from tsysvalidator import validate_msg, ValidationError
 
 
 log = logging.getLogger(__name__)
@@ -68,27 +68,25 @@ class TsysRoute(object):
 	def msg_received(s, msg):
 		log.info('message received')
 		log.info('msg: ' + str(msg))
-		#todo: validate
+		txn_type = msg.iterkeys().next()
+		#todo: finish validation
+		try:
+			validate_msg(msg)
+		except ValidationError as e:
+			log.debug('validation failed')
+			log.debug(e.errors)
 		#todo: create tsys request
 		#todo: send to tsys
 		#todo: receive response
 		#todo: create core response
 		#msg = json.loads(msg)
-		txn_type = msg.iterkeys().next()
 		guid = msg[txn_type]['guid']
-		if txn_type == 'payment':
-			try:
-				result, errors = validate_payment(msg)
-			except ValidationError as e:
-				log.debug('validation failed')
-				log.debug(e.errors)
 
 		s.red.rpush(guid, json.dumps(msg))  # echo msg back to http server
 
 	def __init__(s):
 		log.info('initializing tsys route')
 		s.msg_mon = MessageMonitor(queue_name=s.queue_name, callback=s.msg_received)
-		#s.validator = TsysValidator()
 
 	def start(s):
 		s.msg_mon.monitor_msg_queue()

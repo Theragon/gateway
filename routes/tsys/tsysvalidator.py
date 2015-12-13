@@ -1,6 +1,5 @@
 from voluptuous import Any, Schema, Required, Length, All, ALLOW_EXTRA
 from voluptuous import MultipleInvalid
-#import voluptuous
 import logging
 import sys
 
@@ -10,7 +9,6 @@ class ValidationError(MultipleInvalid):
 
 	def __init__(self, errors):
 		super(ValidationError, self).__init__(errors)
-		#MultipleInvalid.__init__(self, errors)
 
 log = logging.getLogger(__name__)
 h = logging.StreamHandler(sys.stdout)
@@ -40,11 +38,10 @@ payment = {
 	'deviceType': Any(unicode),
 	'terminalOsVersion': Any(unicode),
 	'transactionCounter': Any(unicode, str),
-	#'accountType': Any(str, unicode),
+	'accountType': Any(str, unicode),
 	'paymentCode': All(unicode, Length(min=1, max=1)),
 	'tipAmount': All(unicode, Length(min=1, max=1)),
 	Required('route'): Any(unicode),
-	#Required('www'): Any(str, unicode),
 }
 
 payment_schema = Schema({
@@ -52,25 +49,14 @@ payment_schema = Schema({
 }, extra=ALLOW_EXTRA)
 
 
+def validate_msg(msg):
+	txn_type = msg.iterkeys().next()
+	if txn_type == 'payment':
+		return validate_payment(msg)
+
+
 def validate_payment(msg):
-	result = True
-	errors = None
 	try:
 		payment_schema(msg)
 	except MultipleInvalid as e:
-		errors = e.errors
-		result = False
 		raise ValidationError(e.errors)
-	#is_valid = payment_schema(msg)
-	log.debug('result: ' + str(result))
-	return result, errors
-
-
-class TsysValidator(object):
-	"""docstring for TsysValidator"""
-	def __init__(self):
-		super(TsysValidator, self).__init__()
-
-	def validate_payment(self, msg):
-		is_valid = payment_schema(msg)
-		return is_valid
