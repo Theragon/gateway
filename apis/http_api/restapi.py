@@ -304,7 +304,6 @@ def do_transaction(msg):
 
 
 @app.route('/viscus/cr/v1/transaction', methods=[POST])
-#@timeit
 def transaction():
 	try:
 		msg = convert_to_dict(request)
@@ -378,4 +377,4 @@ def contains_xml(request):
 
 if __name__ == '__main__':
 	initialize()
-	app.run(debug=debug)
+	app.run(debug=debug, processes=4)
