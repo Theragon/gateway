@@ -31,7 +31,7 @@ payment = {
 	'amount': Any(unicode),
 	'customerReference': Any(unicode),
 	'emvData': Any(unicode),
-	'track2Data': Any(unicode),
+	Required('track2Data'): Any(unicode),
 	Required('f22'): Any(unicode),
 	'serialNumber': Any(unicode),
 	'terminalUserId': Any(unicode),
@@ -39,8 +39,8 @@ payment = {
 	'terminalOsVersion': Any(unicode),
 	'transactionCounter': Any(unicode, str),
 	'accountType': Any(str, unicode),
-	'paymentCode': All(unicode, Length(min=1, max=1)),
-	'tipAmount': All(unicode, Length(min=1, max=1)),
+	Required('paymentCode'): All(unicode, str, Length(min=1, max=1)),
+	'tipAmount': All(unicode, str, Length(min=1, max=1)),
 	Required('route'): Any(unicode),
 }
 
