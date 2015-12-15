@@ -2,6 +2,7 @@ import threading
 import unittest
 import requests
 import json
+from time import time
 
 transaction_url = 'http://localhost:5000/viscus/cr/v1/transaction'
 payment_url = 'http://localhost:5000/viscus/cr/v1/payment'
@@ -52,6 +53,28 @@ def post_payment(data):
 	#return rsp
 
 
+def timeit(method):
+	def timed(*args, **kw):
+		#print('STARTING TIMER')
+		start = time()
+		result = method(*args, **kw)
+		end = time()
+		delta = end - start
+
+		if delta >= 1:
+			print('%s function took %0.3f s' % (method.__name__, delta))
+		else:
+			print('%s function took %0.3f ms' % (method.__name__, (delta)*1000.0))
+		return result
+	return timed
+
+
+@timeit
+def start_threads(threads):
+	for t in threads:
+		t.start()
+
+
 class FunctionalTests(unittest.TestCase):
 	"""docstring"""
 
@@ -60,14 +83,13 @@ class FunctionalTests(unittest.TestCase):
 
 		threads = []
 
-		for i in range(1000):
+		for i in range(100):
 			t = threading.Thread(target=post_payment, args=(data,))
 			threads.append(t)
 
-		for t in threads:
-			t.start()
+		start_threads(threads)
 
-		print('threads are off')
+		#print('threads are off')
 
 		for t in threads:
 			t.join()
