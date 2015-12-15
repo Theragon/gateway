@@ -1,3 +1,4 @@
+import threading
 import unittest
 import requests
 import json
@@ -20,7 +21,7 @@ payment = \
 			u'serialNumber': u'311001305',
 			u'softwareVersion': u'1.3.1.15',
 			u'emvData': u'4f07a00000000430605712679999',
-			u'currency': u'GBP',
+			u'currency': u'USD',
 			u'amount': u'10.00',
 			u'paymentScenario': u'CHIP',
 			u'cardAcceptorId': u'TestHekla5',
@@ -30,19 +31,46 @@ payment = \
 			u'terminalDateTime': u'20130614172956000',
 			u'configVersion': u'12',
 			u'terminalUserId': u'OP1',
-			u'terminalOsVersion': u'1.08.00'
+			u'terminalOsVersion': u'1.08.00',
+			u'paymentCode': u'D',
+			u'track2Data': u'5592000010000001=16111210000000000000',
 		}
 	}
 
 
+def run_in_background(method):
+	#global bg_thread
+	# Initialize thread with a method and run it in background
+	bg_thread = threading.Thread(target=method, args=())
+	bg_thread.start()
+
+
+def post_payment(data):
+	rsp = requests.post(payment_url, data=data, headers=app_json)
+	#print('response received ' + str(threading.current_thread().name))
+	assert rsp
+	#return rsp
+
+
 class FunctionalTests(unittest.TestCase):
 	"""docstring"""
-	def test_01_tsys_payment(self):
-		data = json.dumps(payment)
-		rsp = requests.post(payment_url, data=data, headers=app_json)
-		assert rsp is not None
-		print('rsp: ' + rsp.text)
 
+	def test_01_hundred_messages(self):
+		data = json.dumps(payment)
+
+		threads = []
+
+		for i in range(1000):
+			t = threading.Thread(target=post_payment, args=(data,))
+			threads.append(t)
+
+		for t in threads:
+			t.start()
+
+		print('threads are off')
+
+		for t in threads:
+			t.join()
 
 if __name__ == '__main__':
 	suite = unittest.TestLoader().loadTestsFromTestCase(FunctionalTests)
