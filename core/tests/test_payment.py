@@ -54,7 +54,9 @@ payment = \
 			u'terminalDateTime': u'20130614172956000',
 			u'configVersion': u'12',
 			u'terminalUserId': u'OP1',
-			u'terminalOsVersion': u'1.08.00'
+			u'terminalOsVersion': u'1.08.00',
+			u'paymentCode': u'D',
+			u'track2Data': u'5592000010000001=16111210000000000000',
 		}
 	}
 
