@@ -29,11 +29,30 @@ def set_up_log():
 
 class Gateway():
 	red = redis.StrictRedis(host='localhost', port=6379, db=0)
-	#ps = red.pubsub()
+	ps = red.pubsub()
+	#ps.subscribe('routes')
+	routes = set()
+
+	def register_route(self, msg):
+		route = msg.get('data')
+		log.info('route ' + route + ' is online')
+		self.routes.add(route)
+
+	def deregister_route(self, msg):
+		route = msg.get('data')
+		log.info('route ' + route + ' is offline')
+		try:
+			self.routes.remove(route)
+		except KeyError:
+			log.info('route ' + route + ' not registered')
 
 	def __init__(self, target=None, callback=None):
 		#s = self
 
+		self.ps.subscribe(**{'online_routes': self.register_route})
+		self.ps.subscribe(**{'offline_routes': self.deregister_route})
+		self.ps.get_message()  # check if a message is waiting
+		self.thread = self.ps.run_in_thread(sleep_time=0.001)
 		set_up_log()
 		log.debug('starting Gateway')
 		self.callback = callback
@@ -58,6 +77,7 @@ class Gateway():
 		log.info('waiting for workers to finish')
 		for w in self.workers:
 			w.join()
+		self.thread.stop()
 
 	def monitor_msg_queue(self):
 		while True:
@@ -65,6 +85,7 @@ class Gateway():
 			log.info('message received')
 			log.info(msg)
 			self.delegate(msg)
+			self.ps.get_message('routes')
 
 	def get_payload(self, msg):
 		payload = msg[1]
