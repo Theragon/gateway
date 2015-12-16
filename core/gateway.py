@@ -31,20 +31,23 @@ class Gateway():
 	red = redis.StrictRedis(host='localhost', port=6379, db=0)
 	ps = red.pubsub()
 	#ps.subscribe('routes')
-	routes = set()
+	routes = []
 
 	def register_route(self, msg):
 		route = msg.get('data')
 		log.info('route ' + route + ' is online')
-		self.routes.add(route)
+		self.routes.append(route)
+		log.info(self.routes)
 
 	def deregister_route(self, msg):
 		route = msg.get('data')
 		log.info('route ' + route + ' is offline')
 		try:
 			self.routes.remove(route)
-		except KeyError:
+		except ValueError:
 			log.info('route ' + route + ' not registered')
+		finally:
+			log.info(self.routes)
 
 	def __init__(self, target=None, callback=None):
 		#s = self
