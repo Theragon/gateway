@@ -30,6 +30,7 @@ app = Flask(__name__)
 
 GET = 'GET'
 POST = 'POST'
+DELETE = 'DELETE'
 
 app_xml = {'Content-Type': 'application/xml'}
 text_xml = {'Content-Type': 'text/xml'}
@@ -171,6 +172,11 @@ def dict_to_xml(dic):
 	return xml
 
 
+###################
+# utility methods #
+###################
+
+
 def add_to_queue(key, value):
 	print('adding message ' + json.dumps(value) + ' to queue ' + str(key))
 	try:
@@ -191,6 +197,12 @@ def now():
 
 def get_value(key):
 	return red.get(key)
+
+
+# All redis wrapper functions should be moved to a separate module
+def save(key, value):
+	result = red.set(key, value)
+	log.info('result: ' + str(result))
 
 
 def wait_for_rsp2(guid, timeout=None):
@@ -324,6 +336,39 @@ def transaction():
 	return http_rsp
 
 
+# this method should later be moved to separate module
+@app.route('/viscus/data/v1/terminalconfig', methods=[POST])
+def post_terminal_config():
+	try:
+		config = convert_to_dict(request)
+	except BadRequestException as e:
+		return (e.message, e.status)
+
+	if terminal_config_exists(config):
+		return ('Data already exists', 409)
+
+	try:
+		save_terminal_config(config)
+	except Exception, e:
+		return (e.message, e.status)
+
+	return ('Created', 201)
+
+
+# this method should later be moved to separate module
+@app.route('/viscus/data/v1/terminalconfig', methods=[DELETE])
+def delete_terminal_config():
+	try:
+		config = convert_to_dict(request)
+	except BadRequestException as e:
+		return (e.message, e.status)
+
+	# move this to a wrapper function
+	red.delete(config['serialNumber'])
+
+	return ('No content', 204)
+
+
 @app.route('/viscus/routestatus/<route>')
 def route_status(route):
 	try:
@@ -333,24 +378,9 @@ def route_status(route):
 		return 'not available'
 
 
-@app.route('/viscus/loadroute/<route_name>', methods=[GET])
-def index(route_name):
-	#print('card_acceptor: ' + card_acceptor)
-	print('route: ' + route_name)
-	result = None
-	#route = None
-
-	if result is None:
-		print('result == None')
-		try:
-			gw.load_module(route_name)
-			result = 'route ' + route_name + ' successfully loaded'
-		except ImportError:
-			result = 'route ' + route_name + ' not found'
-
-	return (result, 200)
-
-# utility methods
+#####################
+# more util methods #
+#####################
 
 
 """def module_exists(module, path):
@@ -360,6 +390,27 @@ def index(route_name):
 	except ImportError:
 		found = False
 	return found"""
+
+
+def exists(key):
+	value = get_value(key)
+	return value is not None
+
+
+def terminal_config_exists(config):
+	config_id = get_config_id(config)
+	log.info('checking if config ' + config_id + ' exists')
+	return exists(config_id)
+
+
+def save_terminal_config(config):
+	config_id = get_config_id(config)
+	log.info('saving terminal config ' + config_id)
+	save(config_id, config)
+
+
+def get_config_id(config):
+	return config.get('serialNumber', None)
 
 
 def get_guid():
