@@ -6,8 +6,12 @@ import redis
 import Queue
 import json
 
+from terminalconfig import terminal_config
+
 payment_url = 'http://localhost:5000/viscus/cr/v1/payment'
 transaction_url = 'http://localhost:5000/viscus/cr/v1/transaction'
+
+terminal_config_url = 'http://localhost:5000/viscus/data/v1/terminalconfig/'
 
 OK = 200
 NOT_ALLOWED = 405
@@ -100,7 +104,8 @@ class PaymentTests(unittest.TestCase):
 		Initialization to be run before each test
 		"""
 		# Make sure the db is clean before each test
-		red.flushdb()
+		#red.flushdb()
+		pass
 
 	def tearDown(self):
 		"""
@@ -115,16 +120,17 @@ class PaymentTests(unittest.TestCase):
 	@classmethod
 	def tearDownClass(cls):
 		# Make sure db has been flushed after tests have finished
-		red.flushdb()
+		#red.flushdb()
+		pass
 
-	#@unittest.skip("")
+	@unittest.skip("")
 	def test_get(self):
 		resp = requests.get(transaction_url)
 		assert resp.status_code == requests.codes.not_allowed
 		assert resp.text == 'Method not allowed'
 
 
-	#@unittest.skip("")
+	@unittest.skip("")
 	def test_01_xml_payment_tsys(self):
 		# Run the http post request in background and add the result to queue
 		run_in_background(post_xml_payment)
@@ -150,7 +156,7 @@ class PaymentTests(unittest.TestCase):
 		http_rsp = get_result()
 		assert http_rsp.status_code == requests.codes.ok
 
-	#@unittest.skip("")
+	@unittest.skip("")
 	def test_02_json_payment_tsys(self):
 		run_in_background(post_json_payment)
 
@@ -171,7 +177,7 @@ class PaymentTests(unittest.TestCase):
 		assert http_rsp is not None
 
 
-	#@unittest.skip("")
+	@unittest.skip("")
 	def test_03_json_authorization_tsys(self):
 		run_in_background(post_json_authorization)
 
@@ -192,7 +198,7 @@ class PaymentTests(unittest.TestCase):
 		assert http_rsp is not None
 
 
-	#@unittest.skip("")
+	@unittest.skip("")
 	def test_04_xml_authorization_tsys(self):
 		run_in_background(post_xml_authorization)
 
@@ -213,18 +219,33 @@ class PaymentTests(unittest.TestCase):
 		assert http_rsp is not None
 
 
-	#@unittest.skip('')
+	@unittest.skip('')
 	def test_05_xml_invalid(self):
 		http_rsp = post_xml_req(transaction_url, 'invalid xml')
 
 		assert http_rsp.status_code == 400
 
 
-	#@unittest.skip('')
+	@unittest.skip('')
 	def test_06_json_invalid(self):
 		http_rsp = post_json_req(transaction_url, 'invalid json')
 
 		assert http_rsp.status_code == 400
+
+
+	def test_07_post_terminal_config(self):
+		http_rsp = post_json_req(terminal_config_url, json.dumps(terminal_config))
+
+		assert http_rsp.status_code == 201
+
+		config = red.get(terminal_config['serialNumber'])
+
+		assert config is not None
+		print(config)
+
+		config2 = red.get(terminal_config['serialNumber'])
+
+		assert config2 is not None
 
 
 # TODO: create different core rsps for different txn types
