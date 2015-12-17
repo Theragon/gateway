@@ -74,6 +74,18 @@ class TsysRoute(object):
     red = redis.StrictRedis(host='localhost', port=6379, db=0)
     ps = red.pubsub()
 
+    def get_terminal_config(s):
+        txn_type = s.msg.iterkeys().next()
+        log.debug('txn_type: ' + txn_type)
+        serial_number = s.msg.get(txn_type).get('serialNumber', None)
+        log.info('getting config for ' + serial_number)
+        s.config = s.red.get(serial_number)
+        if s.config is None:
+            # config not found - return an error
+            log.info('config for serial number ' + serial_number + ' not found')
+        else:
+            log.info('config found for serial number ' + serial_number)
+
     def msg_received(s, msg):
         log.info('message received')
         log.info('msg: ' + str(msg))
