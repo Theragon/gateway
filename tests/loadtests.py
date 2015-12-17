@@ -39,20 +39,6 @@ payment = \
 	}
 
 
-def run_in_background(method):
-	#global bg_thread
-	# Initialize thread with a method and run it in background
-	bg_thread = threading.Thread(target=method, args=())
-	bg_thread.start()
-
-
-def post_payment(data):
-	rsp = requests.post(payment_url, data=data, headers=app_json)
-	#print('response received ' + str(threading.current_thread().name))
-	assert rsp
-	#return rsp
-
-
 def timeit(method):
 	def timed(*args, **kw):
 		#print('STARTING TIMER')
@@ -69,10 +55,39 @@ def timeit(method):
 	return timed
 
 
+failed_msgs = 0
+
+
+def run_in_background(method):
+	#global bg_thread
+	# Initialize thread with a method and run it in background
+	bg_thread = threading.Thread(target=method, args=())
+	bg_thread.start()
+
+
+def post_payment(data):
+	global failed_msgs
+	try:
+		rsp = requests.post(payment_url, data=data, headers=app_json)
+		if rsp.status_code != 200:
+			print('MESSAGE FAILED!')
+			failed_msgs += 1
+	except requests.ConnectionError:
+		failed_msgs += 1
+
+
 @timeit
 def start_threads(threads):
 	for t in threads:
 		t.start()
+
+
+def initialize_threads(number, target, args=()):
+	threads = []
+	for i in range(number):
+		t = threading.Thread(target=target, args=(args,))
+		threads.append(t)
+	return threads
 
 
 class FunctionalTests(unittest.TestCase):
@@ -81,18 +96,14 @@ class FunctionalTests(unittest.TestCase):
 	def test_01_hundred_messages(self):
 		data = json.dumps(payment)
 
-		threads = []
-
-		for i in range(100):
-			t = threading.Thread(target=post_payment, args=(data,))
-			threads.append(t)
+		threads = initialize_threads(300, post_payment, args=(data))
 
 		start_threads(threads)
 
-		#print('threads are off')
-
 		for t in threads:
 			t.join()
+
+		print('failed messages: ' + str(failed_msgs))
 
 if __name__ == '__main__':
 	suite = unittest.TestLoader().loadTestsFromTestCase(FunctionalTests)
