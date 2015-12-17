@@ -54,7 +54,6 @@ class Gateway():
 
 		self.ps.subscribe(**{'online_routes': self.register_route})
 		self.ps.subscribe(**{'offline_routes': self.deregister_route})
-		#self.ps.get_message()  # check if a message is waiting
 		self.thread = self.ps.run_in_thread(sleep_time=0.001)
 		set_up_log()
 		log.debug('starting Gateway')
@@ -88,7 +87,6 @@ class Gateway():
 			log.info('message received')
 			log.info(msg)
 			self.delegate(msg)
-			#self.ps.get_message('routes')
 
 	def get_payload(self, msg):
 		payload = msg[1]
