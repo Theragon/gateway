@@ -410,7 +410,9 @@ def save_terminal_config(config):
 
 
 def get_config_id(config):
-	return config.get('serialNumber', None)
+	device_type = config.get('terminalType')
+	serial_number = config.get('serialNumber', None)
+	return device_type + serial_number
 
 
 def get_guid():
