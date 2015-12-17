@@ -11,7 +11,7 @@ from terminalconfig import terminal_config
 payment_url = 'http://localhost:5000/viscus/cr/v1/payment'
 transaction_url = 'http://localhost:5000/viscus/cr/v1/transaction'
 
-terminal_config_url = 'http://localhost:5000/viscus/data/v1/terminalconfig/'
+terminal_config_url = 'http://localhost:5000/viscus/data/v1/terminalconfig'
 
 OK = 200
 NOT_ALLOWED = 405
@@ -234,18 +234,25 @@ class PaymentTests(unittest.TestCase):
 
 
 	def test_07_post_terminal_config(self):
+		# post the config to the server
 		http_rsp = post_json_req(terminal_config_url, json.dumps(terminal_config))
 
+		# config should have been created and status code should be 201
 		assert http_rsp.status_code == 201
 
-		config = red.get(terminal_config['serialNumber'])
+		# construct the config id
+		device_type = terminal_config['terminalType']
+		serial_number = terminal_config['serialNumber']
+		config_id = device_type + serial_number
 
+		# config should be retrievable from the db
+		config = red.get(config_id)
 		assert config is not None
-		print(config)
 
-		config2 = red.get(terminal_config['serialNumber'])
+		http_rsp = post_json_req(terminal_config_url, json.dumps(terminal_config))
 
-		assert config2 is not None
+		# config should already exist and status code should be 409 (conflict)
+		assert http_rsp.status_code == 409
 
 
 # TODO: create different core rsps for different txn types
