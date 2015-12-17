@@ -27,24 +27,39 @@ class MessageHandler(mpr.Process):
 		super(MessageHandler, s).__init__()
 		s.msg = kwargs.get('msg', None)
 
+		s.config = None
+
 	def run(s):
-		s.deliver_msg(s.msg)
+		s.get_terminal_config()
+		s.deliver_msg()
 
 	def create_queue_name(s, route):
 		queue_name = route + ':incoming'
 		return queue_name
 
-	def deliver_msg(s, msg):
+	def get_terminal_config(s):
+		txn_type = s.msg.iterkeys().next()
+		log.debug('txn_type: ' + txn_type)
+		serial_number = s.msg.get(txn_type).get('serialNumber', None)
+		log.info('getting config for ' + serial_number)
+		s.config = s.red.get(serial_number)
+		if s.config is None:
+			# config not found - return an error
+			log.info('config for serial number ' + serial_number + ' not found')
+		else:
+			log.info('config found for serial number ' + serial_number)
+
+	def deliver_msg(s):
 		log.info('message handler handling message')
-		log.debug(msg)
-		txn_type = msg.iterkeys().next()
+		log.debug(s.msg)
+		txn_type = s.msg.iterkeys().next()
 		log.debug('type: ' + txn_type)
-		route = msg.get('payment').get('route')
+		route = s.msg.get('payment').get('route')
 		log.debug('route: ' + str(route))
 
 		queue_name = s.create_queue_name(route)
 		log.debug('putting msg on queue ' + queue_name)
-		s.red.rpush(queue_name, json.dumps(msg))
+		s.red.rpush(queue_name, json.dumps(s.msg))
 
 		#if txn_type == 'payment':
 		#	self.do_payment(msg)
