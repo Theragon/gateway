@@ -35,13 +35,13 @@ payment = \
 	{
 		u'payment':
 		{
+			u'serialNumber': u'41852978',
 			u'nonce': u'7604056809',
 			u'deviceType': u'MPED400',
 			u'transactionCounter': u'3',
 			u'customerReference': u'00000001',
 			u'f22': u'51010151114C',
 			u'route': u'tsys',
-			u'serialNumber': u'311001305',
 			u'softwareVersion': u'1.3.1.15',
 			u'emvData': u'4f07a00000000430605712679999',
 			u'currency': u'USD',
