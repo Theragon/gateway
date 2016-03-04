@@ -321,7 +321,6 @@ def delete_terminal_config():
 
 	config_id = get_config_id(config)
 
-	# move this to a wrapper function
 	db.delete(config_id)
 
 	return ('No content', 204)
