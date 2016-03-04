@@ -74,6 +74,7 @@ class TsysRoute(object):
     red = redis.StrictRedis(host='localhost', port=6379, db=0)
     ps = red.pubsub()
 
+
     def get_terminal_config(s):
         txn_type = s.msg.iterkeys().next()
         log.debug('txn_type: ' + txn_type)
@@ -82,9 +83,10 @@ class TsysRoute(object):
         s.config = s.red.get(serial_number)
         if s.config is None:
             # config not found - return an error
-            log.info('config for serial number ' + serial_number + ' not found')
+            log.info('config for serialnumber ' + serial_number + ' not found')
         else:
-            log.info('config found for serial number ' + serial_number)
+            log.info('config found for serialnumber ' + serial_number)
+
 
     def msg_received(s, msg):
         log.info('message received')
@@ -112,10 +114,14 @@ class TsysRoute(object):
         log.info('sleeping for ' + str(secs) + ' seconds')
         #time.sleep(secs)
         log.info('done')
+
+        s.red.rpush('core:outgoing', json.dumps(msg))  # echo msg back to core
         s.red.rpush(guid, json.dumps(msg))  # echo msg back to http server
+
 
     def on_exit(s):
         s.red.publish('offline_routes', 'tsys')
+
 
     def __init__(s):
         log.info('initializing tsys route')

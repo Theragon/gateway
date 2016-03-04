@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-#import utils.decorators as dec
 from xml.parsers.expat import ExpatError
 from datetime import datetime
 #from flask import Response
@@ -8,7 +7,7 @@ from flask import Flask
 from flask import json
 import logging as log
 import xmltodict
-import redis
+#import redis
 import uuid
 import time
 import sys
@@ -21,6 +20,7 @@ sys.path.append(proj_root)
 #from routes import *
 
 from utils.decorators import timeit
+import utils.dbutils as db
 #from core.gateway import Gateway
 
 app = Flask(__name__)
@@ -42,20 +42,12 @@ txn_cntr = 0
 
 req_sub_id = 'requests'
 rsp_sub_id = 'responses'
-pub_sub_host = 'localhost'
-pub_sub_port = 6379
-pub_sub_db = 0
 
-red = redis.StrictRedis(
-	host=pub_sub_host,
-	port=pub_sub_port,
-	db=pub_sub_db
-)
-
-ps = red.pubsub(ignore_subscribe_messages=True)
+ps = db.red.pubsub(ignore_subscribe_messages=True)
 ps.subscribe(rsp_sub_id)
 
 debug = True
+encryption = False if debug else True
 
 #logging.basicConfig(filename='example.log',level=logging.INFO)
 log.basicConfig(level=log.INFO, format='%(asctime)s %(message)s')
@@ -176,52 +168,8 @@ def dict_to_xml(dic):
 # utility methods #
 ###################
 
-
-def add_to_queue(key, value):
-	print('adding message ' + json.dumps(value) + ' to queue ' + str(key))
-	try:
-		red.rpush(key, json.dumps(value))
-	except Exception as e:
-		raise e
-
-
-def listen(msg):
-	while True:
-		m = red.get_message()
-	return m
-
-
 def now():
 	return time.time()
-
-
-def get_value(key):
-	return red.get(key)
-
-
-# All redis wrapper functions should be moved to a separate module
-def save(key, value):
-	result = red.set(key, value)
-	log.info('result: ' + str(result))
-
-
-def wait_for_rsp2(guid, timeout=None):
-	print('waiting for guid ' + str(guid))
-	rsp = None
-	start = now()
-	while rsp is None:
-		rsp = get_value(guid)
-		diff = now() - start
-		if timeout and diff > timeout:
-			raise GatewayTimeoutException('Operation timed out')
-
-	red.delete(guid)
-	return json.loads(rsp)
-
-
-def wait_for_rsp(guid, timeout=0):
-	rsp = red.blpop(guid, timeout=timeout)
-	return json.loads(rsp[1])
 
 
 def create_http_rsp(core_rsp, http_req):
@@ -271,6 +219,9 @@ def refund():
 
 @app.route('/viscus/cr/v1/payment', methods=[POST])
 def payment():
+	if encryption:
+		log.info('encryption is enabled')
+		log.warn('THIS FEATURE IS NOT YET IMPLEMENTED')
 	try:
 		msg = convert_to_dict(request)
 	except BadRequestException as e:
@@ -301,14 +252,17 @@ def do_transaction(msg):
 	msg[txn_type]['guid'] = msg_guid
 	log.info('type: ' + txn_type)
 
+	msg[txn_type]['status'] = 'received'
+
 	try:
-		add_to_queue('incoming', msg)
+		db.add_to_queue('incoming', msg)
 	except Exception as e:
 		# Some serious database error needs to be handled
 		raise e
 
 	try:
-		core_rsp = wait_for_rsp(msg_guid)
+		print('waiting for response for guid ' + msg_guid)
+		core_rsp = db.wait_for_rsp(msg_guid)
 	except GatewayTimeoutException as e:
 		raise e
 
@@ -323,7 +277,9 @@ def transaction():
 		return (e.message, e.status)
 
 	try:
+		print('waiting for response from core')
 		core_rsp = do_transaction(msg)
+		print('core_rsp: ' + json.dumps(core_rsp))
 	except GatewayTimeoutException as e:
 		return (e.message, e.status)
 
@@ -363,8 +319,10 @@ def delete_terminal_config():
 	except BadRequestException as e:
 		return (e.message, e.status)
 
+	config_id = get_config_id(config)
+
 	# move this to a wrapper function
-	red.delete(config['serialNumber'])
+	db.delete(config_id)
 
 	return ('No content', 204)
 
@@ -383,17 +341,8 @@ def route_status(route):
 #####################
 
 
-"""def module_exists(module, path):
-	try:
-		imp.find_module(module, [path])
-		found = True
-	except ImportError:
-		found = False
-	return found"""
-
-
 def exists(key):
-	value = get_value(key)
+	value = db.get_value(key)
 	return value is not None
 
 
@@ -406,7 +355,7 @@ def terminal_config_exists(config):
 def save_terminal_config(config):
 	config_id = get_config_id(config)
 	log.info('saving terminal config ' + config_id)
-	save(config_id, config)
+	db.save(config_id, config)
 
 
 def get_config_id(config):

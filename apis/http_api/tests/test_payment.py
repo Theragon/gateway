@@ -5,8 +5,16 @@ import requests
 import redis
 import Queue
 import json
+import imp
+import os
 
 from terminalconfig import terminal_config
+
+db = imp.load_source(
+	"dbutils",
+	os.path.dirname(
+		os.path.dirname(
+			os.path.dirname(os.getcwd())))+'/utils/dbutils.py')
 
 payment_url = 'http://localhost:5000/viscus/cr/v1/payment'
 transaction_url = 'http://localhost:5000/viscus/cr/v1/transaction'
@@ -31,13 +39,8 @@ bg_thread = threading.Thread()
 msg_store = Queue.Queue()
 
 
-def get_msg():
-	"""
-	Pop message from message queue and return its payload
-	"""
-	msg = red.blpop('incoming', timeout=0)
-	payload = msg[1]
-	return json.loads(payload)
+def json2dict(msg):
+	return json.loads(msg)
 
 
 def post_json_req(url, data):
@@ -130,27 +133,32 @@ class PaymentTests(unittest.TestCase):
 		assert resp.text == 'Method not allowed'
 
 
-	@unittest.skip("")
+	#@unittest.skip("")
 	def test_01_xml_payment_tsys(self):
 		# Run the http post request in background and add the result to queue
 		run_in_background(post_xml_payment)
 
 		# Get the message from the rest interface incoming message queue
-		msg = get_msg()
+		print('getting message from incoming queue')
+		msg = json2dict(db.get_msg())
 
 		# Assert that request was added to message queue
 		assert msg is not None
 		print(msg)
 
 		txn_type = msg.iterkeys().next()
+		print('txn_type: ' + txn_type)
 		guid = str(msg[txn_type]['guid'])
 
 		# Create a core response
 		core_rsp = create_core_rsp(guid)
+		print('core_rsp: ' + core_rsp)
 		#print('setting ' + guid + ' to queue')
 
 		# Put the response on the outgoing queue
-		red.set(guid, core_rsp)
+		#red.rpush(guid, core_rsp)
+		db.add_to_queue(guid, core_rsp)
+		#red.set(guid, core_rsp)
 
 		# Get the result from the queue
 		http_rsp = get_result()
@@ -160,7 +168,7 @@ class PaymentTests(unittest.TestCase):
 	def test_02_json_payment_tsys(self):
 		run_in_background(post_json_payment)
 
-		msg = get_msg()
+		msg = db.get_msg()
 
 		assert msg is not None
 		print(msg)
@@ -181,7 +189,7 @@ class PaymentTests(unittest.TestCase):
 	def test_03_json_authorization_tsys(self):
 		run_in_background(post_json_authorization)
 
-		msg = get_msg()
+		msg = db.get_msg()
 
 		assert msg is not None
 		print(msg)
@@ -202,7 +210,7 @@ class PaymentTests(unittest.TestCase):
 	def test_04_xml_authorization_tsys(self):
 		run_in_background(post_xml_authorization)
 
-		msg = get_msg()
+		msg = db.get_msg()
 
 		assert msg is not None
 		print(msg)
@@ -233,6 +241,7 @@ class PaymentTests(unittest.TestCase):
 		assert http_rsp.status_code == 400
 
 
+	@unittest.skip('')
 	def test_07_post_terminal_config(self):
 		# post the config to the server
 		http_rsp = post_json_req(terminal_config_url, json.dumps(terminal_config))
