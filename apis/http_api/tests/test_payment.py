@@ -2,19 +2,16 @@ import threading
 import xmltodict
 import unittest
 import requests
-import redis
+#import redis
 import Queue
 import json
-import imp
-import os
+import sys
 
 from terminalconfig import terminal_config
 
-db = imp.load_source(
-	"dbutils",
-	os.path.dirname(
-		os.path.dirname(
-			os.path.dirname(os.getcwd())))+'/utils/dbutils.py')
+sys.path.append('/home/logi/repos/gateway')
+from utils import dbutils as db
+from utils import httputils as http
 
 payment_url = 'http://localhost:5000/viscus/cr/v1/payment'
 transaction_url = 'http://localhost:5000/viscus/cr/v1/transaction'
@@ -24,13 +21,8 @@ terminal_config_url = 'http://localhost:5000/viscus/data/v1/terminalconfig'
 OK = 200
 NOT_ALLOWED = 405
 
-app_xml = {'Content-Type': 'application/xml'}
-text_xml = {'Content-Type': 'text/xml'}
-app_json = {'Content-Type': 'application/json'}
 
-
-red = redis.StrictRedis(host='localhost', port=6379, db=0)
-ps = red.pubsub(ignore_subscribe_messages=True)
+ps = db.red.pubsub(ignore_subscribe_messages=True)
 ps.subscribe('requests')
 
 # Create a thread to run tasks in background
@@ -44,12 +36,12 @@ def json2dict(msg):
 
 
 def post_json_req(url, data):
-	http_rsp = requests.post(url, data=data, headers=app_json)
+	http_rsp = requests.post(url, data=data, headers=http.APP_JSON)
 	return http_rsp
 
 
 def post_xml_req(url, data):
-	http_rsp = requests.post(url, data=data, headers=app_xml)
+	http_rsp = requests.post(url, data=data, headers=http.APP_XML)
 	return http_rsp
 
 
@@ -123,8 +115,8 @@ class PaymentTests(unittest.TestCase):
 	@classmethod
 	def tearDownClass(cls):
 		# Make sure db has been flushed after tests have finished
-		#red.flushdb()
-		pass
+		db.flushdb()
+
 
 	@unittest.skip("")
 	def test_get(self):
@@ -164,6 +156,7 @@ class PaymentTests(unittest.TestCase):
 		http_rsp = get_result()
 		assert http_rsp.status_code == requests.codes.ok
 
+
 	@unittest.skip("")
 	def test_02_json_payment_tsys(self):
 		run_in_background(post_json_payment)
@@ -178,7 +171,7 @@ class PaymentTests(unittest.TestCase):
 
 		core_rsp = create_core_rsp(guid)
 
-		red.set(guid, core_rsp)
+		db.set(guid, core_rsp)
 
 		http_rsp = get_result()
 
@@ -199,7 +192,7 @@ class PaymentTests(unittest.TestCase):
 
 		core_rsp = create_core_rsp(guid)
 
-		red.set(guid, core_rsp)
+		db.set(guid, core_rsp)
 
 		http_rsp = get_result()
 
@@ -220,7 +213,7 @@ class PaymentTests(unittest.TestCase):
 
 		core_rsp = create_core_rsp(guid)
 
-		red.set(guid, core_rsp)
+		db.set(guid, core_rsp)
 
 		http_rsp = get_result()
 
@@ -255,7 +248,7 @@ class PaymentTests(unittest.TestCase):
 		config_id = device_type + serial_number
 
 		# config should be retrievable from the db
-		config = red.get(config_id)
+		config = db.get_value(config_id)
 		assert config is not None
 
 		http_rsp = post_json_req(terminal_config_url, json.dumps(terminal_config))
