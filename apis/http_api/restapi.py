@@ -1,13 +1,14 @@
 #!/usr/bin/env python
-from xml.parsers.expat import ExpatError
+
+####################
+# external modules #
+####################
+
 from datetime import datetime
-#from flask import Response
 from flask import request
 from flask import Flask
 from flask import json
 import logging as log
-import xmltodict
-#import redis
 import uuid
 import time
 import sys
@@ -17,27 +18,20 @@ proj_root = os.path.dirname(os.path.dirname(os.getcwd()))
 print('project root: ' + proj_root)
 sys.path.append(proj_root)
 
-#from routes import *
+###################
+# project modules #
+###################
 
 from utils.decorators import timeit
-import utils.dbutils as db
-#from core.gateway import Gateway
+from utils import dbutils as db
+from utils import httputils as http
+from utils.parseutils import *
 
 app = Flask(__name__)
 #http://localhost:38181/viscus/cr/v1/payment/
 
 # constants
 
-GET = 'GET'
-POST = 'POST'
-DELETE = 'DELETE'
-
-app_xml = {'Content-Type': 'application/xml'}
-text_xml = {'Content-Type': 'text/xml'}
-app_json = {'Content-Type': 'application/json'}
-
-msg_cache = {}
-gw = None
 txn_cntr = 0
 
 req_sub_id = 'requests'
@@ -50,7 +44,7 @@ debug = True
 encryption = False if debug else True
 
 #logging.basicConfig(filename='example.log',level=logging.INFO)
-log.basicConfig(level=log.INFO, format='%(asctime)s %(message)s')
+log.basicConfig(level=log.DEBUG, format='%(asctime)s %(message)s')
 
 
 def initialize():
@@ -65,7 +59,8 @@ def initialize():
 
 @app.errorhandler(404)
 def page_not_found(error):
-	return 'This page does not exist', 404
+	nfe = http.NotFoundException()
+	return (nfe.message, nfe.status)
 
 
 @app.errorhandler(500)
@@ -78,35 +73,6 @@ def not_allowed(error):
 	return 'Method not allowed', 405
 
 
-##############
-# Exceptions #
-##############
-
-
-class GatewayTimeoutException(Exception):
-	"""docstring for GatewayTimeoutException"""
-	def __init__(self, message):
-		super(GatewayTimeoutException, self).__init__(message)
-		#self.message = message
-		self.status = 504
-
-
-class InternalServerError(Exception):
-	"""docstring for InternalServerError"""
-	def __init__(self, message):
-		super(InternalServerError, self).__init__(message)
-		#self.message = message
-		self.status = 500
-
-
-class BadRequestException(Exception):
-	"""docstring for BadRequestException"""
-	def __init__(self, message):
-		super(BadRequestException, self).__init__(message)
-		#self.arg = arg
-		self.status = 400
-
-
 ###################
 # parsing methods #
 ###################
@@ -115,53 +81,23 @@ class BadRequestException(Exception):
 def convert_to_dict(request):
 	log.info('converting to dict')
 	msg = None
-	if contains_json(request):
+	if http.contains_json(request):
 		try:
 			msg = json_to_dict(request.data)
 		except ValueError:
 			log.info('ValueError')
-			raise BadRequestException('Malformed json')
-			#return ('Malformed json', 400)
-	elif contains_xml(request):
+			raise http.BadRequestException('Malformed json')
+	elif http.contains_xml(request):
 		try:
 			msg = xml_to_dict(request.data)
 		except ExpatError:
 			log.info('ExpatError')
-			raise BadRequestException('Malformed xml')
-			#return ('Malformed xml', 400)
+			raise http.BadRequestException('Malformed xml')
+	log.info(
+		'accepted response formats:' + str(request.accept_mimetypes.values()))
+	msg['response_format'] = request.accept_mimetypes.best
+	log.info('chosen response format: ' + str(msg.get('response_format')))
 	return msg
-
-
-def json_to_dict(jso):
-	try:
-		json_dict = json.loads(jso)
-	except ValueError as e:
-		raise e
-	return json_dict
-
-
-def dict_to_json(dic):
-	try:
-		dict_json = json.dumps(dic)
-	except ValueError as e:
-		raise e
-	return dict_json
-
-
-def xml_to_dict(xml):
-	try:
-		xml_dict = xmltodict.parse(xml)
-	except ExpatError as e:
-		raise e
-	return xml_dict
-
-
-def dict_to_xml(dic):
-	try:
-		xml = xmltodict.unparse(dic, full_document=False)
-	except Exception as e:
-		raise e
-	return xml
 
 
 ###################
@@ -172,22 +108,25 @@ def now():
 	return time.time()
 
 
-def create_http_rsp(core_rsp, http_req):
-	if contains_xml(http_req):
+def create_http_rsp(core_rsp, rsp_format):
+	if http.is_xml(rsp_format):
 		try:
 			xml_response = dict_to_xml(core_rsp)
-			http_rsp = (xml_response, 200, app_xml)
+			http_rsp = (xml_response, 200, http.APP_XML)
 		except Exception:
 			log.info('Error converting core response to xml')
-			raise InternalServerError('Internal server error')
+			raise http.InternalServerError('Internal server error')
 
-	elif contains_json(http_req):
+	elif http.is_json(rsp_format):
 		try:
 			json_response = dict_to_json(core_rsp)
-			http_rsp = (json_response, 200, app_json)
+			http_rsp = (json_response, 200, http.APP_JSON)
 		except Exception:
 			log.info('Error converting core response to json')
-			raise InternalServerError('Internal server error')
+			raise http.InternalServerError('Internal server error')
+
+	elif http.is_yaml(rsp_format):
+		raise http.NotImplementedException
 
 	return http_rsp
 
@@ -196,45 +135,45 @@ def create_http_rsp(core_rsp, http_req):
 ###############
 
 
-@app.route('/viscus/cr/v1/refund', methods=[POST])
+@app.route('/viscus/cr/v1/refund', methods=[http.POST])
 def refund():
 	try:
 		msg = convert_to_dict(request)
-	except BadRequestException as e:
+	except http.BadRequestException as e:
 		return (e.message, e.status)
 
 	try:
 		core_rsp = do_transaction(msg)
-	except GatewayTimeoutException as e:
+	except http.GatewayTimeoutException as e:
 		return (e.message, e.status)
 
 	try:
-		http_rsp = create_http_rsp(core_rsp, request)
-	except InternalServerError as e:
+		http_rsp = create_http_rsp(core_rsp, msg.get('response_format'))
+	except http.InternalServerError as e:
 		return (e.message, e.status)
 
 	print('returning ' + str(http_rsp))
 	return http_rsp
 
 
-@app.route('/viscus/cr/v1/payment', methods=[POST])
+@app.route('/viscus/cr/v1/payment', methods=[http.POST])
 def payment():
 	if encryption:
 		log.info('encryption is enabled')
 		log.warn('THIS FEATURE IS NOT YET IMPLEMENTED')
 	try:
 		msg = convert_to_dict(request)
-	except BadRequestException as e:
+	except http.BadRequestException as e:
 		return (e.message, e.status)
 
 	try:
 		core_rsp = do_transaction(msg)
-	except GatewayTimeoutException as e:
+	except http.GatewayTimeoutException as e:
 		return (e.message, e.status)
 
 	try:
-		http_rsp = create_http_rsp(core_rsp, request)
-	except InternalServerError as e:
+		http_rsp = create_http_rsp(core_rsp, msg.get('response_format'))
+	except http.InternalServerError as e:
 		return (e.message, e.status)
 
 	print('returning ' + str(http_rsp))
@@ -263,42 +202,43 @@ def do_transaction(msg):
 	try:
 		print('waiting for response for guid ' + msg_guid)
 		core_rsp = db.wait_for_rsp(msg_guid)
-	except GatewayTimeoutException as e:
+	except http.GatewayTimeoutException as e:
 		raise e
 
 	return core_rsp
 
 
-@app.route('/viscus/cr/v1/transaction', methods=[POST])
+@app.route('/viscus/cr/v1/transaction', methods=[http.POST])
 def transaction():
 	try:
 		msg = convert_to_dict(request)
-	except BadRequestException as e:
+	except http.BadRequestException as e:
 		return (e.message, e.status)
 
 	try:
-		print('waiting for response from core')
 		core_rsp = do_transaction(msg)
 		print('core_rsp: ' + json.dumps(core_rsp))
-	except GatewayTimeoutException as e:
+	except http.GatewayTimeoutException as e:
 		return (e.message, e.status)
 
 	try:
-		http_rsp = create_http_rsp(core_rsp, request)
-	except InternalServerError as e:
-		return (e.message, e.status)
+		http_rsp = create_http_rsp(core_rsp, msg.get('response_format'))
+	except http.InternalServerError as ise:
+		return ise.response
+	except http.NotImplementedException as nie:
+		return nie.response
 
 	print('returning ' + str(http_rsp))
 	return http_rsp
 
 
 # this method should later be moved to separate module
-@app.route('/viscus/data/v1/terminalconfig', methods=[POST])
+@app.route('/viscus/data/v1/terminalconfig', methods=[http.POST])
 def post_terminal_config():
 	try:
 		config = convert_to_dict(request)
-	except BadRequestException as e:
-		return (e.message, e.status)
+	except http.BadRequestException as bre:
+		return bre.response
 
 	if terminal_config_exists(config):
 		return ('Data already exists', 409)
@@ -312,12 +252,12 @@ def post_terminal_config():
 
 
 # this method should later be moved to separate module
-@app.route('/viscus/data/v1/terminalconfig', methods=[DELETE])
+@app.route('/viscus/data/v1/terminalconfig', methods=[http.DELETE])
 def delete_terminal_config():
 	try:
 		config = convert_to_dict(request)
-	except BadRequestException as e:
-		return (e.message, e.status)
+	except http.BadRequestException as bre:
+		return bre.response
 
 	config_id = get_config_id(config)
 
@@ -328,11 +268,8 @@ def delete_terminal_config():
 
 @app.route('/viscus/routestatus/<route>')
 def route_status(route):
-	try:
-		sys.modules[route]
-		return 'available'
-	except KeyError:
-		return 'not available'
+	nie = http.NotImplementedException()
+	return nie.response
 
 
 #####################
@@ -365,15 +302,6 @@ def get_config_id(config):
 
 def get_guid():
 	return uuid.uuid4()
-
-
-def contains_json(request):
-	return request.headers['Content-Type'] == 'application/json'
-
-
-def contains_xml(request):
-	return request.headers['Content-Type'] == 'text/xml' \
-		or request.headers['Content-Type'] == 'application/xml'
 
 
 if __name__ == '__main__':
