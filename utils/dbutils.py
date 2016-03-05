@@ -29,7 +29,7 @@ def get_value(key):
 	return red.get(key)
 
 
-def save(key, value):
+def set(key, value):
 	red.set(key, value)
 
 
@@ -63,3 +63,7 @@ def get_msg():
 
 def delete(item):
 	red.delete(item)
+
+
+def flushdb():
+	red.flushdb()
