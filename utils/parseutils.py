@@ -1,3 +1,4 @@
+from xml.parsers.expat import ExpatError
 import xmltodict
 import json
 
@@ -21,7 +22,7 @@ def dict_to_json(dic):
 def xml_to_dict(xml):
 	try:
 		xml_dict = xmltodict.parse(xml)
-	except Exception, e:
+	except ExpatError as e:
 		raise e
 	return xml_dict
 
