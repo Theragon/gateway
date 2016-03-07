@@ -4,7 +4,9 @@
 # external modules #
 ####################
 
+from flask_negotiate import consumes, produces
 from datetime import datetime
+from flask import Response
 from flask import request
 from flask import Flask
 from flask import json
@@ -28,9 +30,15 @@ from utils import httputils as http
 from utils.parseutils import *
 
 app = Flask(__name__)
-#http://localhost:38181/viscus/cr/v1/payment/
 
 # constants
+
+ACCEPTED_MIMETYPES = \
+	[
+		http.MimeType.app_xml,
+		http.MimeType.text_xml,
+		http.MimeType.app_json
+	]
 
 txn_cntr = 0
 
@@ -108,19 +116,23 @@ def now():
 	return time.time()
 
 
+def create_response(data, status, mimetype):
+	return Response(data, status, mimetype=mimetype)
+
+
 def create_http_rsp(core_rsp, rsp_format):
 	if http.is_xml(rsp_format):
 		try:
-			xml_response = dict_to_xml(core_rsp)
-			http_rsp = (xml_response, 200, http.APP_XML)
+			xml_rsp = dict_to_xml(core_rsp)
+			http_rsp = create_response(xml_rsp, 200, http.MimeType.app_xml)
 		except Exception:
 			log.info('Error converting core response to xml')
 			raise http.InternalServerError('Internal server error')
 
 	elif http.is_json(rsp_format):
 		try:
-			json_response = dict_to_json(core_rsp)
-			http_rsp = (json_response, 200, http.APP_JSON)
+			json_rsp = dict_to_json(core_rsp)
+			http_rsp = create_response(json_rsp, 200, http.MimeType.app_json)
 		except Exception:
 			log.info('Error converting core response to json')
 			raise http.InternalServerError('Internal server error')
@@ -209,6 +221,8 @@ def do_transaction(msg):
 
 
 @app.route('/viscus/cr/v1/transaction', methods=[http.POST])
+@consumes(*ACCEPTED_MIMETYPES)  # list of media types expanded to parameters
+@produces(*ACCEPTED_MIMETYPES)
 def transaction():
 	try:
 		msg = convert_to_dict(request)
@@ -228,7 +242,8 @@ def transaction():
 	except http.NotImplementedException as nie:
 		return nie.response
 
-	print('returning ' + str(http_rsp))
+	#print(dir(http_rsp))
+	print('returning data: ' + str(http_rsp.data))
 	return http_rsp
 
 

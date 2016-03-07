@@ -155,6 +155,8 @@ class PaymentTests(unittest.TestCase):
 		# Get the result from the queue
 		http_rsp = get_result()
 		assert http_rsp.status_code == requests.codes.ok
+		print(http_rsp.headers.get('Content-Type'))
+		assert http_rsp.headers['Content-Type'].split(';')[0] == http.MimeType.app_xml
 
 
 	@unittest.skip("")

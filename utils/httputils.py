@@ -1,17 +1,27 @@
 #!/usr/bin/env python
 
-# HTTP Headers
-app_xml = 'application/xml'
-text_xml = 'text/xml'
-app_json = 'application/json'
-app_yaml = 'application/x-yaml'
-text_yaml = 'text/yaml'
+#from enum import Enum
 
-APP_XML = {'Content-Type': app_xml, 'Accept': app_xml}
-TEXT_XML = {'Content-Type': text_xml, 'Accept': text_xml}
-APP_JSON = {'Content-Type': app_json, 'Accept': app_json}
-APP_YAML = {'Content-Type': app_yaml, 'Accept': app_yaml}
-TEXT_YAML = {'Content-Type': text_yaml, 'Accept': text_yaml}
+
+class MimeType():
+	app_xml = 'application/xml'
+	text_xml = 'text/xml'
+	app_json = 'application/json'
+	app_yaml = 'application/x-yaml'
+	text_yaml = 'text/yaml'
+
+# HTTP Headers
+#app_xml = 'application/xml'
+#text_xml = 'text/xml'
+#app_json = 'application/json'
+#app_yaml = 'application/x-yaml'
+#text_yaml = 'text/yaml'
+
+APP_XML = {'Content-Type': MimeType.app_xml, 'Accept': MimeType.app_xml}
+TEXT_XML = {'Content-Type': MimeType.text_xml, 'Accept': MimeType.text_xml}
+APP_JSON = {'Content-Type': MimeType.app_json, 'Accept': MimeType.app_json}
+APP_YAML = {'Content-Type': MimeType.app_yaml, 'Accept': MimeType.app_yaml}
+TEXT_YAML = {'Content-Type': MimeType.text_yaml, 'Accept': MimeType.text_yaml}
 
 # HTTP Methods
 GET = 'GET'
@@ -30,15 +40,15 @@ def contains_xml(request):
 
 
 def is_json(mimetype):
-	return mimetype == app_json
+	return mimetype == MimeType.app_json
 
 
 def is_xml(mimetype):
-	return mimetype == text_xml or mimetype == app_xml
+	return mimetype == MimeType.text_xml or mimetype == MimeType.app_xml
 
 
 def is_yaml(mimetype):
-	return mimetype == app_yaml or mimetype == text_yaml
+	return mimetype == MimeType.app_yaml or mimetype == MimeType.text_yaml
 
 
 class GatewayTimeoutException(Exception):
