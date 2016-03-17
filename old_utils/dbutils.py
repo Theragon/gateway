@@ -8,6 +8,7 @@ port = 6379
 db = 0
 
 red = redis.StrictRedis(host=host, port=port, db=db)
+pubsub = red.pubsub()
 
 
 def add_to_queue(queue, item):
@@ -31,6 +32,10 @@ def get_value(key):
 
 def set(key, value):
 	red.set(key, value)
+
+
+def send_to_core(msg):
+	add_to_queue('incoming', msg)
 
 
 #def wait_for_rsp2(guid, timeout=None):
@@ -67,3 +72,18 @@ def delete(item):
 
 def flushdb():
 	red.flushdb()
+
+
+def client_side_incr(pipe):
+	current_value = pipe.get('OUR-SEQUENCE-KEY')
+	next_value = int(current_value) + 1
+	pipe.multi()
+	pipe.set('OUR-SEQUENCE-KEY', next_value)
+
+
+def incr():
+	red.transaction(client_side_incr, 'OUR-SEQUENCE-KEY')
+
+
+def subscribe_to_channel(channel, callback):
+	pubsub.subscribe(**{channel: callback})

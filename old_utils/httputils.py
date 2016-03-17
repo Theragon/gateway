@@ -17,13 +17,29 @@ class MimeType():
 #app_yaml = 'application/x-yaml'
 #text_yaml = 'text/yaml'
 
-APP_XML = {'Content-Type': MimeType.app_xml, 'Accept': MimeType.app_xml}
-TEXT_XML = {'Content-Type': MimeType.text_xml, 'Accept': MimeType.text_xml}
-APP_JSON = {'Content-Type': MimeType.app_json, 'Accept': MimeType.app_json}
-APP_YAML = {'Content-Type': MimeType.app_yaml, 'Accept': MimeType.app_yaml}
-TEXT_YAML = {'Content-Type': MimeType.text_yaml, 'Accept': MimeType.text_yaml}
+
+class Headers():
+	APP_XML = {'Content-Type': MimeType.app_xml, 'Accept': MimeType.app_xml}
+	TEXT_XML = {'Content-Type': MimeType.text_xml, 'Accept': MimeType.text_xml}
+	APP_JSON = {'Content-Type': MimeType.app_json, 'Accept': MimeType.app_json}
+	APP_YAML = {'Content-Type': MimeType.app_yaml, 'Accept': MimeType.app_yaml}
+	TEXT_YAML = {'Content-Type': MimeType.text_yaml, 'Accept': MimeType.text_yaml}
+
+#APP_XML = {'Content-Type': MimeType.app_xml, 'Accept': MimeType.app_xml}
+#TEXT_XML = {'Content-Type': MimeType.text_xml, 'Accept': MimeType.text_xml}
+#APP_JSON = {'Content-Type': MimeType.app_json, 'Accept': MimeType.app_json}
+#APP_YAML = {'Content-Type': MimeType.app_yaml, 'Accept': MimeType.app_yaml}
+#TEXT_YAML = {'Content-Type': MimeType.text_yaml, 'Accept': MimeType.text_yaml}
 
 # HTTP Methods
+
+
+class Method():
+	GET = 'GET'
+	PUT = 'PUT'
+	POST = 'POST'
+	DELETE = 'DELETE'
+
 GET = 'GET'
 PUT = 'PUT'
 POST = 'POST'
