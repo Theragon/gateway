@@ -12,6 +12,7 @@ from terminalconfig import terminal_config
 sys.path.append('/home/logi/repos/gateway')
 from utils import dbutils as db
 from utils import httputils as http
+from utils.httputils import Headers
 
 payment_url = 'http://localhost:5000/viscus/cr/v1/payment'
 transaction_url = 'http://localhost:5000/viscus/cr/v1/transaction'
@@ -36,12 +37,12 @@ def json2dict(msg):
 
 
 def post_json_req(url, data):
-	http_rsp = requests.post(url, data=data, headers=http.APP_JSON)
+	http_rsp = requests.post(url, data=data, headers=Headers.APP_JSON)
 	return http_rsp
 
 
 def post_xml_req(url, data):
-	http_rsp = requests.post(url, data=data, headers=http.APP_XML)
+	http_rsp = requests.post(url, data=data, headers=Headers.APP_XML)
 	return http_rsp
 
 
@@ -88,6 +89,10 @@ def get_result():
 	global msg_store
 	bg_thread.join()
 	return msg_store.get()
+
+
+def get_content_type(http_rsp):
+	return http_rsp.headers['Content-Type'].split(';')[0]
 
 
 class PaymentTests(unittest.TestCase):
@@ -156,7 +161,7 @@ class PaymentTests(unittest.TestCase):
 		http_rsp = get_result()
 		assert http_rsp.status_code == requests.codes.ok
 		print(http_rsp.headers.get('Content-Type'))
-		assert http_rsp.headers['Content-Type'].split(';')[0] == http.MimeType.app_xml
+		assert get_content_type(http_rsp) == http.MimeType.app_xml
 
 
 	@unittest.skip("")
