@@ -206,7 +206,8 @@ def do_transaction(msg):
 	msg[txn_type]['status'] = 'received'
 
 	try:
-		db.add_to_queue('incoming', msg)
+		db.send_to_core(msg)
+		#db.add_to_queue('incoming', msg)
 	except Exception as e:
 		# Some serious database error needs to be handled
 		raise e
