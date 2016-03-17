@@ -1,10 +1,13 @@
+import multiprocessing as mpr
 import logging.config
 import logging
-import redis
-import json
+#import redis
+#import json
 import sys
 
+sys.path.append('/home/logi/repos/gateway')
 from messagehandler import MessageHandler
+from utils import dbutils as db
 
 #if sys.version_info[0] < 3:
 #	from logutils.queue import QueueHandler, QueueListener
@@ -28,8 +31,8 @@ def set_up_log():
 
 
 class Gateway():
-	red = redis.StrictRedis(host='localhost', port=6379, db=0)
-	ps = red.pubsub()
+	#red = redis.StrictRedis(host='localhost', port=6379, db=0)
+	ps = db.red.pubsub()
 	#ps.subscribe('routes')
 	routes = []
 
@@ -49,6 +52,9 @@ class Gateway():
 		finally:
 			log.info(self.routes)
 
+	def start_process(self):
+		print('Starting ' + mpr.current_process().name)
+
 	def __init__(self, target=None, callback=None):
 		#s = self
 
@@ -60,6 +66,7 @@ class Gateway():
 		self.callback = callback
 
 		self.workers = []
+		self.pool = mpr.Pool(processes=2, initializer=self.start_process,)
 
 
 	def start(self):
@@ -96,9 +103,11 @@ class Gateway():
 		"""
 		Pop message from message queue and return its payload
 		"""
-		msg = self.red.blpop('incoming', timeout=0)
-		payload = self.get_payload(msg)
-		return json.loads(payload)
+		#msg = self.red.blpop('incoming', timeout=0)
+		msg = db.get_msg()
+		#payload = self.get_payload(msg)
+		#return json.loads(payload)
+		return msg
 
 
 if __name__ == '__main__':
