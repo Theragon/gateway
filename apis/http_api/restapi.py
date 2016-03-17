@@ -11,10 +11,12 @@ from flask import request
 from flask import Flask
 from flask import json
 import logging as log
+import ConfigParser
 import uuid
 import time
 import sys
 import os
+import io
 
 proj_root = os.path.dirname(os.path.dirname(os.getcwd()))
 print('project root: ' + proj_root)
@@ -28,10 +30,13 @@ from utils.decorators import timeit
 from utils import dbutils as db
 from utils import httputils as http
 from utils.parseutils import *
+import utils.queueutils as q
 
 app = Flask(__name__)
 
 # constants
+
+config = None
 
 ACCEPTED_MIMETYPES = \
 	[
@@ -48,16 +53,35 @@ rsp_sub_id = 'responses'
 ps = db.red.pubsub(ignore_subscribe_messages=True)
 ps.subscribe(rsp_sub_id)
 
-debug = True
-encryption = False if debug else True
+debug = None
+encryption = None
+#encryption = False if debug else True
 
 #logging.basicConfig(filename='example.log',level=logging.INFO)
 log.basicConfig(level=log.DEBUG, format='%(asctime)s %(message)s')
 
 
+def read_config():
+	global config
+	with open(sys.argv[1]) as f:
+		data = f.read()
+	config = ConfigParser.RawConfigParser(allow_no_value=True)
+	config.readfp(io.BytesIO(data))
+
+
 def initialize():
 	#do initialization
-	pass
+	global debug
+	global encryption
+	read_config()
+	debug = config.get('basic', 'debug')
+	encryption = config.get('basic', 'encryption')
+	print('debug from config: ' + debug)
+	print('encryption from config: ' + encryption)
+	# if connection with disque is not established
+	if not q.connect():
+		# use redis as fallback
+		q.switch_to_engine('redis')
 
 
 ##################
@@ -107,40 +131,6 @@ def convert_to_dict(request):
 	log.info('chosen response format: ' + str(msg.get('response_format')))
 	return msg
 
-
-###################
-# utility methods #
-###################
-
-def now():
-	return time.time()
-
-
-def create_response(data, status, mimetype):
-	return Response(data, status, mimetype=mimetype)
-
-
-def create_http_rsp(core_rsp, rsp_format):
-	if http.is_xml(rsp_format):
-		try:
-			xml_rsp = dict_to_xml(core_rsp)
-			http_rsp = create_response(xml_rsp, 200, http.MimeType.app_xml)
-		except Exception:
-			log.info('Error converting core response to xml')
-			raise http.InternalServerError('Internal server error')
-
-	elif http.is_json(rsp_format):
-		try:
-			json_rsp = dict_to_json(core_rsp)
-			http_rsp = create_response(json_rsp, 200, http.MimeType.app_json)
-		except Exception:
-			log.info('Error converting core response to json')
-			raise http.InternalServerError('Internal server error')
-
-	elif http.is_yaml(rsp_format):
-		raise http.NotImplementedException
-
-	return http_rsp
 
 ###############
 # http routes #
@@ -206,15 +196,14 @@ def do_transaction(msg):
 	msg[txn_type]['status'] = 'received'
 
 	try:
-		db.send_to_core(msg)
-		#db.add_to_queue('incoming', msg)
+		send_to_core(msg)
 	except Exception as e:
 		# Some serious database error needs to be handled
 		raise e
 
 	try:
 		print('waiting for response for guid ' + msg_guid)
-		core_rsp = db.wait_for_rsp(msg_guid)
+		core_rsp = recv_from_core(msg_guid)
 	except http.GatewayTimeoutException as e:
 		raise e
 
@@ -288,9 +277,53 @@ def route_status(route):
 	return nie.response
 
 
-#####################
-# more util methods #
-#####################
+###################
+# utility methods #
+###################
+
+def recv_from_core(guid):
+	rsp = q.dequeue(guid, None)
+	if isinstance(rsp, str):
+		rsp = json_to_dict(rsp)
+	return rsp
+
+
+def send_to_core(msg):
+	if isinstance(msg, dict):
+		msg = dict_to_json(msg)
+
+	q.enqueue('incoming', msg, 0)
+
+
+def now():
+	return time.time()
+
+
+def create_response(data, status, mimetype):
+	return Response(data, status, mimetype=mimetype)
+
+
+def create_http_rsp(core_rsp, rsp_format):
+	if http.is_xml(rsp_format):
+		try:
+			xml_rsp = dict_to_xml(core_rsp)
+			http_rsp = create_response(xml_rsp, 200, http.MimeType.app_xml)
+		except Exception:
+			log.info('Error converting core response to xml')
+			raise http.InternalServerError('Internal server error')
+
+	elif http.is_json(rsp_format):
+		try:
+			json_rsp = dict_to_json(core_rsp)
+			http_rsp = create_response(json_rsp, 200, http.MimeType.app_json)
+		except Exception:
+			log.info('Error converting core response to json')
+			raise http.InternalServerError('Internal server error')
+
+	elif http.is_yaml(rsp_format):
+		raise http.NotImplementedException
+
+	return http_rsp
 
 
 def exists(key):

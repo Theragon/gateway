@@ -1,0 +1,4 @@
+[basic]
+debug: True
+queue: disque
+encryption: False

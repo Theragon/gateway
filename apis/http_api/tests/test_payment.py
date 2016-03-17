@@ -13,6 +13,7 @@ sys.path.append('/home/logi/repos/gateway')
 from utils import dbutils as db
 from utils import httputils as http
 from utils.httputils import Headers
+import utils.queueutils as q
 
 payment_url = 'http://localhost:5000/viscus/cr/v1/payment'
 transaction_url = 'http://localhost:5000/viscus/cr/v1/transaction'
@@ -115,7 +116,9 @@ class PaymentTests(unittest.TestCase):
 
 	@classmethod
 	def setUpClass(cls):
-		pass
+		q.connect()
+		# this needs to be removed to a wrapper function later
+		q.d.debug_flushall()
 
 	@classmethod
 	def tearDownClass(cls):
@@ -137,7 +140,7 @@ class PaymentTests(unittest.TestCase):
 
 		# Get the message from the rest interface incoming message queue
 		print('getting message from incoming queue')
-		msg = json2dict(db.get_msg())
+		msg = json2dict(q.dequeue('incoming', 0))
 
 		# Assert that request was added to message queue
 		assert msg is not None
@@ -153,9 +156,7 @@ class PaymentTests(unittest.TestCase):
 		#print('setting ' + guid + ' to queue')
 
 		# Put the response on the outgoing queue
-		#red.rpush(guid, core_rsp)
-		db.add_to_queue(guid, core_rsp)
-		#red.set(guid, core_rsp)
+		q.enqueue(guid, core_rsp)
 
 		# Get the result from the queue
 		http_rsp = get_result()
