@@ -116,9 +116,10 @@ class PaymentTests(unittest.TestCase):
 
 	@classmethod
 	def setUpClass(cls):
-		q.connect()
+		connected = q.connect()
+		print(connected)
 		# this needs to be removed to a wrapper function later
-		q.d.debug_flushall()
+		q.flush_all()
 
 	@classmethod
 	def tearDownClass(cls):

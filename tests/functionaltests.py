@@ -2,6 +2,10 @@ import threading
 import unittest
 import requests
 import json
+import sys
+
+sys.path.append('/home/logi/repos/gateway')
+from utils.httputils import Headers
 
 transaction_url = 'http://localhost:5000/viscus/cr/v1/transaction'
 payment_url = 'http://localhost:5000/viscus/cr/v1/payment'
@@ -78,7 +82,7 @@ class FunctionalTests(unittest.TestCase):
 	#@unittest.skip('')
 	def test_01_tsys_payment(self):
 		data = json.dumps(payment)
-		rsp = requests.post(payment_url, data=data, headers=app_json)
+		rsp = requests.post(transaction_url, data=data, headers=Headers.APP_JSON)
 		assert rsp is not None
 		print('rsp: ' + rsp.text)
 

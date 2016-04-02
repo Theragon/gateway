@@ -53,8 +53,8 @@ rsp_sub_id = 'responses'
 ps = db.red.pubsub(ignore_subscribe_messages=True)
 ps.subscribe(rsp_sub_id)
 
-debug = None
-encryption = None
+debug = True
+encryption = False
 #encryption = False if debug else True
 
 #logging.basicConfig(filename='example.log',level=logging.INFO)
@@ -62,22 +62,26 @@ log.basicConfig(level=log.DEBUG, format='%(asctime)s %(message)s')
 
 
 def read_config():
+	global debug
 	global config
-	with open(sys.argv[1]) as f:
-		data = f.read()
-	config = ConfigParser.RawConfigParser(allow_no_value=True)
-	config.readfp(io.BytesIO(data))
+	global encryption
+	try:
+		with open(sys.argv[1]) as f:
+			data = f.read()
+		config = ConfigParser.RawConfigParser(allow_no_value=True)
+		config.readfp(io.BytesIO(data))
+		debug = config.get('basic', 'debug')
+		encryption = config.get('basic', 'encryption')
+		print('debug from config: ' + debug)
+		print('encryption from config: ' + encryption)
+	except Exception as e:
+		print(e.message)
+		log.warn('Failed to read config, using default values')
 
 
 def initialize():
 	#do initialization
-	global debug
-	global encryption
 	read_config()
-	debug = config.get('basic', 'debug')
-	encryption = config.get('basic', 'encryption')
-	print('debug from config: ' + debug)
-	print('encryption from config: ' + encryption)
 	# if connection with disque is not established
 	if not q.connect():
 		# use redis as fallback
@@ -126,9 +130,14 @@ def convert_to_dict(request):
 			log.info('ExpatError')
 			raise http.BadRequestException('Malformed xml')
 	log.info(
-		'accepted response formats:' + str(request.accept_mimetypes.values()))
+		'accepted response formats:' +
+		str(request.accept_mimetypes.values()))
+
 	msg['response_format'] = request.accept_mimetypes.best
-	log.info('chosen response format: ' + str(msg.get('response_format')))
+
+	log.info(
+		'chosen response format: ' +
+		str(msg.get('response_format')))
 	return msg
 
 
@@ -150,7 +159,8 @@ def refund():
 		return (e.message, e.status)
 
 	try:
-		http_rsp = create_http_rsp(core_rsp, msg.get('response_format'))
+		http_rsp = create_http_rsp(
+			core_rsp, msg.get('response_format'))
 	except http.InternalServerError as e:
 		return (e.message, e.status)
 
@@ -174,7 +184,8 @@ def payment():
 		return (e.message, e.status)
 
 	try:
-		http_rsp = create_http_rsp(core_rsp, msg.get('response_format'))
+		http_rsp = create_http_rsp(
+			core_rsp, msg.get('response_format'))
 	except http.InternalServerError as e:
 		return (e.message, e.status)
 
@@ -211,7 +222,8 @@ def do_transaction(msg):
 
 
 @app.route('/viscus/cr/v1/transaction', methods=[http.POST])
-@consumes(*ACCEPTED_MIMETYPES)  # list of media types expanded to parameters
+# list of media types expanded to parameters
+@consumes(*ACCEPTED_MIMETYPES)
 @produces(*ACCEPTED_MIMETYPES)
 def transaction():
 	try:
@@ -226,7 +238,8 @@ def transaction():
 		return (e.message, e.status)
 
 	try:
-		http_rsp = create_http_rsp(core_rsp, msg.get('response_format'))
+		http_rsp = create_http_rsp(
+			core_rsp, msg.get('response_format'))
 	except http.InternalServerError as ise:
 		return ise.response
 	except http.NotImplementedException as nie:
@@ -282,7 +295,7 @@ def route_status(route):
 ###################
 
 def recv_from_core(guid):
-	rsp = q.dequeue(guid, None)
+	rsp = q.dequeue(guid, 0)
 	if isinstance(rsp, str):
 		rsp = json_to_dict(rsp)
 	return rsp
@@ -291,6 +304,7 @@ def recv_from_core(guid):
 def send_to_core(msg):
 	if isinstance(msg, dict):
 		msg = dict_to_json(msg)
+	log.info('sending message ' + msg + ' to queue incoming')
 
 	q.enqueue('incoming', msg, 0)
 
@@ -307,7 +321,8 @@ def create_http_rsp(core_rsp, rsp_format):
 	if http.is_xml(rsp_format):
 		try:
 			xml_rsp = dict_to_xml(core_rsp)
-			http_rsp = create_response(xml_rsp, 200, http.MimeType.app_xml)
+			http_rsp = create_response(
+				xml_rsp, 200, http.MimeType.app_xml)
 		except Exception:
 			log.info('Error converting core response to xml')
 			raise http.InternalServerError('Internal server error')
@@ -315,7 +330,8 @@ def create_http_rsp(core_rsp, rsp_format):
 	elif http.is_json(rsp_format):
 		try:
 			json_rsp = dict_to_json(core_rsp)
-			http_rsp = create_response(json_rsp, 200, http.MimeType.app_json)
+			http_rsp = create_response(
+				json_rsp, 200, http.MimeType.app_json)
 		except Exception:
 			log.info('Error converting core response to json')
 			raise http.InternalServerError('Internal server error')
