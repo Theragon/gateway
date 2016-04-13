@@ -21,6 +21,7 @@ import io
 proj_root = os.path.dirname(os.path.dirname(os.getcwd()))
 print('project root: ' + proj_root)
 sys.path.append(proj_root)
+sys.path.append('/home/logi/repos/gateway')
 
 ###################
 # project modules #
@@ -31,6 +32,7 @@ from utils import dbutils as db
 from utils import httputils as http
 from utils.parseutils import *
 import utils.queueutils as q
+import utils.messageutils as mu
 
 app = Flask(__name__)
 
@@ -200,11 +202,11 @@ def do_transaction(msg):
 	msg_guid = str(get_guid())
 	log.info('message guid: ' + str(msg_guid))
 
-	txn_type = msg.iterkeys().next()
-	msg[txn_type]['guid'] = msg_guid
+	txn_type = mu.get_type(msg)
+	mu.set_guid(msg, msg_guid)
 	log.info('type: ' + txn_type)
 
-	msg[txn_type]['status'] = 'received'
+	mu.set_status(msg, 'received')
 
 	try:
 		send_to_core(msg)
@@ -296,6 +298,8 @@ def route_status(route):
 
 def recv_from_core(guid):
 	rsp = q.dequeue(guid, 0)
+	print('response received')
+	print(rsp)
 	if isinstance(rsp, str):
 		rsp = json_to_dict(rsp)
 	return rsp
@@ -367,6 +371,8 @@ def get_config_id(config):
 
 def get_guid():
 	return uuid.uuid4()
+
+initialize()
 
 
 if __name__ == '__main__':
