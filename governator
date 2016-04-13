@@ -1,0 +1,107 @@
+#!/usr/bin/env python
+from collections import OrderedDict
+from subprocess import Popen, PIPE
+import argparse
+import code
+
+http = None
+core = None
+routes = OrderedDict()
+route_ctr = 0
+
+
+def start_http_interface():
+	global http
+	print('starting HTTP interface')
+	# move this path to config later
+	http_run_script = 'apis/http_api/run'
+	params = [http_run_script]
+	try:
+		http = Popen(params, stdout=PIPE, stderr=PIPE)
+	except:
+		print('failed to start http interface')
+
+
+def start_core():
+	global core
+	print('starting core')
+	# move this path to config later
+	core_run_script = 'core/run'
+	params = [core_run_script]
+	try:
+		core = Popen(params, stdout=PIPE, stderr=PIPE)
+	except:
+		print('failed to start core')
+
+
+def start_route(route):
+	global route_ctr
+	route_ctr += 1
+	print('starting route ' + route)
+	# move this path to config later
+	route_run_script = 'routes/' + route + '/run'
+	params = [route_run_script]
+	try:
+		r = Popen(params, stdout=PIPE, stderr=PIPE)
+		routes[route + '-' + str(route_ctr)] = r
+	except:
+		print('failed to start route ' + route_run_script)
+
+
+def start_all():
+	print('starting everything')
+	start_http_interface()
+	start_core()
+
+
+def stop_http_interface():
+	http.kill()
+	return http.wait()
+
+
+def stop_core():
+	core.kill()
+	return core.wait()
+
+
+def stop_route(route):
+	key = None
+	process = None
+	try:
+		key, process = routes.iteritems().next()
+		route_name = key.split('-')[0]
+	except:
+		print('no route found')
+	if route_name == route:
+		process.kill()
+		process.wait()
+		del routes[key]
+	else:
+		print('no route to stop')
+
+
+def stop_all_routes():
+	for key, val in routes.iteritems():
+		val.kill()
+		val.wait()
+		del routes[key]
+
+
+def stop_all():
+	stop_http_interface()
+	stop_core()
+
+
+def quit():
+	try:
+		stop_all()
+	finally:
+		raise SystemExit
+
+
+parser = argparse.ArgumentParser()
+parser.add_argument('start_all', help='start_all help')
+args = parser.parse_args(['start_all'])
+
+start_all()
+code.interact(local=locals())
