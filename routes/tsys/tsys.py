@@ -1,20 +1,24 @@
+from collections import OrderedDict
+from Queue import Queue
 import xmltodict
+#import threading
 import logging
 import random
-#import atexit
 import redis
-import json
-#import time
+import time
+#import json
+import uuid
 import sys
-from Queue import Queue
-from collections import OrderedDict
 
 sys.path.append('/home/logi/repos/gateway')
 
 from tsysvalidator import validate_msg, ValidationError
 from utils import queueutils as q
-from utils.parseutils import json_to_dict
+from utils import pubsub as ps
+from utils import messageutils as mu
 
+red = redis.StrictRedis(host='localhost', port=6379, db=0)
+#ps = red.pubsub()
 
 log = logging.getLogger(__name__)
 h = logging.StreamHandler(sys.stdout)
@@ -24,6 +28,9 @@ f = logging.Formatter(log_format)
 h.setFormatter(f)
 log.addHandler(h)
 log.setLevel(logging.DEBUG)
+
+unique_id = uuid.uuid4().hex
+route_name = 'tsys-' + unique_id
 
 
 class MessageMonitor():
@@ -39,23 +46,15 @@ class MessageMonitor():
 
 		s.inner_queue = Queue()
 
-		s.red = redis.StrictRedis(host=s.host, port=s.port, db=s.db)
-
 	def get_payload(s, msg):
 		payload = msg[1]
 		return payload
 
 	def wait_for_msg(s):
 		try:
-			#msg = s.red.blpop(s.queue_name, timeout=0)
-			msg = q.dequeue(s.queue_name)
-			log.info('MessageMonitor delivering msg: ' + msg)
-			#payload = s.get_payload(msg)
-			#return json.loads(payload)
-			print('type(msg): ' + str(type(msg)))
-			msg2 = json_to_dict(msg)
-			print('type(msg2): ' + str(type(msg2)))
-			return json_to_dict(msg)
+			msg = q.dequeue_d(s.queue_name)
+			log.info('MessageMonitor delivering msg: ' + str(msg))
+			return msg
 		except KeyboardInterrupt:
 			log.info('shutting down')
 			sys.exit()
@@ -79,9 +78,6 @@ class TsysRoute(object):
 
 	route = 'tsys'
 	queue_name = route + ':incoming'
-
-	red = redis.StrictRedis(host='localhost', port=6379, db=0)
-	ps = red.pubsub()
 
 
 	def get_terminal_config(s):
@@ -117,24 +113,50 @@ class TsysRoute(object):
 		#todo: receive response
 		#todo: create core response
 		#msg = json.loads(msg)
-		guid = msg[txn_type]['guid']
+		guid = mu.get_guid(msg)
+		log.info('guid: ' + guid)
 
 		secs = random.uniform(0, 2)
 		log.info('sleeping for ' + str(secs) + ' seconds')
 		#time.sleep(secs)
 		log.info('done')
 
-		q.enqueue('core:outgoing', json.dumps(msg))
-		#s.red.rpush('core:outgoing', json.dumps(msg))  # echo msg back to core
-		s.red.rpush(guid, json.dumps(msg))  # echo msg back to http server
+		q.enqueue_d('core:outgoing', msg)  # echo msg back to core
+
+	def my_handler(s, msg):
+		print('MY HANDLER: ', msg['data'])
+		payload = msg['data']
+		if payload == 'all:republish':
+			publish_status('online')
+
+	def monitor_routes(self):
+		while True:
+			# check if new routes are offline/online
+			rsp = q.dequeue('route-status-publish', 100)
+			if rsp == 'all:republish':
+				log.info('republish message received - republishing status')
+				publish_status('online')
+			time.sleep(0.25)
 
 
 	def __init__(s):
 		log.info('initializing tsys route')
 		q.connect()
 		s.msg_mon = MessageMonitor(queue_name=s.queue_name, cb=s.msg_received)
-		#s.red.publish('online_routes', 'tsys')
-		publish_online_status()
+
+		ps.subscribe(**{'route-status-publish': s.my_handler})
+		s.thread = ps.run_in_thread(sleep_time=0.001)
+
+		#s.thread = threading.Thread(target=s.monitor_routes, args=())
+		#s.thread.daemon = True
+		#s.thread.start()
+
+		publish_status('online')
+
+	def stop(s):
+		log.info('going down')
+		s.thread.stop()
+		publish_status('offline')
 
 	def start(s):
 		s.msg_mon.monitor_msg_queue()
@@ -175,27 +197,23 @@ class TsysRoute(object):
 		return xml
 
 
-def publish_online_status():
-	log.info('publishing online status')
-	q.enqueue('online_routes', 'tsys')
-
-
-def publish_offline_status():
-	log.info('publishing offline status')
-	q.enqueue('offline_routes', 'tsys')
+def publish_status(status):
+	log.info('publishing status: ' + status)
+	q.enqueue('route-status', route_name + ':' + status)
 
 
 def on_exit():
-	publish_offline_status()
+	publish_status('offline')
 
 
 def main():
+	tsys = TsysRoute()
 	try:
-		tsys = TsysRoute()
 		tsys.start()
 	finally:
-		log.info('going down')
-		on_exit()
+		#log.info('going down')
+		tsys.stop()
+		#on_exit()
 
 if __name__ == '__main__':
 	main()
