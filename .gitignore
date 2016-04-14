@@ -3,3 +3,4 @@
 pytddmon.py
 *.xsd
 tsys_info
+venv/*
