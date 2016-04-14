@@ -4,3 +4,4 @@ pytddmon.py
 *.xsd
 tsys_info
 venv/*
+*.sublime-workspace
