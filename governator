@@ -49,11 +49,25 @@ def start_route(route):
 		print('failed to start route ' + route_run_script)
 
 
+def list_all_routes():
+	return [d for d in next(os.walk('routes'))[1]]
+
+
+def list_running_routes():
+	return [r.split('-')[0] for r in list(routes.iterkeys())]
+
+
+def list_down_routes():
+	return list(set(list_all_routes()) - set(list_running_routes()))
+
+
 def list_routes(which):
 	if which == 'all':
-		return [d for d in next(os.walk('routes'))[1]]
+		return list_all_routes()
 	elif which == 'running':
-		return [r.split('-')[0] for r in list(routes.iterkeys())]
+		return list_running_routes()
+	elif which == 'down':
+		return list_down_routes()
 
 
 def start_all_routes():
