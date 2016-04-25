@@ -1,0 +1,5 @@
+debug: True
+encryption: False
+queue-engine: disque
+queue-address: 'localhost'
+queue-port: 7711
